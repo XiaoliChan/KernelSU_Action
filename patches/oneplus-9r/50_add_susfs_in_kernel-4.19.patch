@@ -1921,3 +1921,23 @@ index fa98ba2..5ab53fd 100644
  	up_read(&uts_sem);
  	if (copy_to_user(name, &tmp, sizeof(tmp)))
  		return -EFAULT;
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 0286498..96500b5 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1519,8 +1519,15 @@ struct task_struct {
+ 	ANDROID_KABI_RESERVE(3);
+ 	ANDROID_KABI_RESERVE(4);
+ 	ANDROID_KABI_RESERVE(5);
++#if defined(CONFIG_KSU_SUSFS)
++	ANDROID_KABI_USE(6, u64 susfs_task_state);
++#else
+ 	ANDROID_KABI_RESERVE(6);
++#endif // #if defined(CONFIG_KSU_SUSFS)
+ #else
++#if defined(CONFIG_KSU_SUSFS)
++	u64 susfs_task_state;
++#endif
+ 	struct mutex			futex_exit_mutex;
+ #endif
+ 

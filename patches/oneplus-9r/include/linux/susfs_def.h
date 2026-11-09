@@ -51,6 +51,10 @@
  * nd->flags => storing flag 'ND_FLAGS_'
  * task_struct->thread_info.flags => storing flag 'TIF_'
  */
+/* task_struct->susfs_task_state flags (restored from susfs v1.5.8; the
+ * v1.5.9 tip dropped the definitions while keeping the references) */
+#define TASK_STRUCT_NON_ROOT_USER_APP_PROC BIT(24)
+
 #define INODE_STATE_SUS_PATH BIT(24)
 #define INODE_STATE_SUS_MOUNT BIT(25)
 #define INODE_STATE_SUS_KSTAT BIT(26)
