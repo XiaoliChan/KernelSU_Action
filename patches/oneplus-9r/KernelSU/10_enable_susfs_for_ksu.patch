@@ -512,7 +512,7 @@ index 429ba33..f6b214c 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PATH -> arg5 is not accessible\n");
 +				return 0;
 +			}
-+			error = susfs_add_sus_path((struct st_susfs_sus_path __user*)arg3);
++			error = susfs_v159_add_sus_path((struct st_susfs_sus_path __user*)arg3);
 +			pr_info("susfs: CMD_SUSFS_ADD_SUS_PATH -> ret: %d\n", error);
 +			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
 +				pr_info("susfs: copy_to_user() failed\n");
@@ -548,7 +548,7 @@ index 429ba33..f6b214c 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> arg5 is not accessible\n");
 +				return 0;
 +			}
-+			error = susfs_add_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
++			error = susfs_v159_add_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
 +			pr_info("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> ret: %d\n", error);
 +			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
 +				pr_info("susfs: copy_to_user() failed\n");
@@ -564,7 +564,7 @@ index 429ba33..f6b214c 100644
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> arg5 is not accessible\n");
 +				return 0;
 +			}
-+			error = susfs_update_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
++			error = susfs_v159_update_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
 +			pr_info("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> ret: %d\n", error);
 +			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
 +				pr_info("susfs: copy_to_user() failed\n");
@@ -580,7 +580,7 @@ index 429ba33..f6b214c 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> arg5 is not accessible\n");
 +				return 0;
 +			}
-+			error = susfs_add_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
++			error = susfs_v159_add_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
 +			pr_info("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> ret: %d\n", error);
 +			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
 +				pr_info("susfs: copy_to_user() failed\n");
@@ -621,7 +621,7 @@ index 429ba33..f6b214c 100644
 +				pr_err("susfs: CMD_SUSFS_SET_UNAME -> arg5 is not accessible\n");
 +				return 0;
 +			}
-+			error = susfs_set_uname((struct st_susfs_uname __user*)arg3);
++			error = susfs_v159_set_uname((struct st_susfs_uname __user*)arg3);
 +			pr_info("susfs: CMD_SUSFS_SET_UNAME -> ret: %d\n", error);
 +			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
 +				pr_info("susfs: copy_to_user() failed\n");
@@ -652,7 +652,7 @@ index 429ba33..f6b214c 100644
 +				pr_err("susfs: CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG -> arg5 is not accessible\n");
 +				return 0;
 +			}
-+			error = susfs_set_cmdline_or_bootconfig((char __user*)arg3);
++			error = susfs_v159_set_cmdline_or_bootconfig((char __user*)arg3);
 +			pr_info("susfs: CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG -> ret: %d\n", error);
 +			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
 +				pr_info("susfs: copy_to_user() failed\n");
@@ -670,7 +670,7 @@ index 429ba33..f6b214c 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_OPEN_REDIRECT -> arg5 is not accessible\n");
 +				return 0;
 +			}
-+			error = susfs_add_open_redirect((struct st_susfs_open_redirect __user*)arg3);
++			error = susfs_v159_add_open_redirect((struct st_susfs_open_redirect __user*)arg3);
 +			pr_info("susfs: CMD_SUSFS_ADD_OPEN_REDIRECT -> ret: %d\n", error);
 +			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
 +				pr_info("susfs: copy_to_user() failed\n");

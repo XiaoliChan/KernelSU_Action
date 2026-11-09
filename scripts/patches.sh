@@ -332,7 +332,9 @@ hooks_patch_apply() {
 	# Tree-adapted hook patches bundled in this repository (under
 	# patches/<SUSFS_LOCAL_DIR>/kernel_hooks/) take precedence: they match
 	# the exact hook API the selected variant expects on this kernel.
-	if [ -n "${SUSFS_LOCAL_DIR:-}" ]; then
+	# The 'kernelsu' variant is excluded: v0.9.x expects the classic sed
+	# script hook API, which the bundled patch does not provide.
+	if [ -n "${SUSFS_LOCAL_DIR:-}" ] && [ "$variant" != "kernelsu" ]; then
 		local local_hook="${REPO_ROOT}/patches/${SUSFS_LOCAL_DIR}/kernel_hooks/kernel-${kver}.patch"
 		if [ -f "$local_hook" ]; then
 			if ( cd "$KERNEL_DIR" && apply_patch "$local_hook" 1 ); then

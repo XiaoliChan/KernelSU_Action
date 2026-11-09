@@ -1,43 +1,51 @@
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+index 70ffffe..f01b951 100644
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -383,6 +383,10 @@ static void input_handle_event(struct input_dev *dev,
+ {
+ 	int disposition = input_get_disposition(dev, type, code, &value);
+ 
++#ifdef CONFIG_KSU
++	ksu_handle_input_handle_event(&type, &code, &value);
++#endif
++
+ 	if (disposition != INPUT_IGNORE_EVENT && type != EV_SYN)
+ 		add_input_randomness(type, code, value);
+ 
+diff --git a/fs/exec.c b/fs/exec.c
+index f0def1b..644f6b0 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
-@@ -1907,11 +1907,20 @@
+@@ -1917,6 +1917,9 @@ int do_execve(struct filename *filename,
  {
  	struct user_arg_ptr argv = { .ptr.native = __argv };
  	struct user_arg_ptr envp = { .ptr.native = __envp };
-+#ifdef CONFIG_KSU_MANUAL_HOOK
-+	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
-+#endif
- 
- 	return __do_execve_file(AT_FDCWD, NULL, argv, envp, 0, file);
- }
- 
- int do_execve(struct filename *filename,
-+#ifdef CONFIG_KSU_MANUAL_HOOK
-+__attribute__((hot))
-+extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,
-+				void *argv, void *envp, int *flags);
-+#endif
-+
- 	const char __user *const __user *__argv,
- 	const char __user *const __user *__envp)
- {
-@@ -1944,6 +1953,9 @@
- 		.is_compat = true,
- 		.ptr.compat = __envp,
- 	};
-+#ifdef CONFIG_KSU_MANUAL_HOOK // 32-bit ksud and 32-on-64 support
++#ifdef CONFIG_KSU
 +	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
 +#endif
  	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
  }
  
+@@ -1945,6 +1948,9 @@ static int compat_do_execve(struct filename *filename,
+ 		.ptr.compat = __envp,
+ 	};
+ 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
++#ifdef CONFIG_KSU // 32-bit ksud and 32-on-64 support
++	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
++#endif
+ }
+ 
+ static int compat_do_execveat(int fd, struct filename *filename,
+diff --git a/fs/open.c b/fs/open.c
+index 13d70db..ba0b632 100644
 --- a/fs/open.c
 +++ b/fs/open.c
-@@ -453,6 +453,15 @@
+@@ -453,6 +453,15 @@ long do_faccessat(int dfd, const char __user *filename, int mode)
  
  SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
  {
-+#ifdef CONFIG_KSU_MANUAL_HOOK
++#ifdef CONFIG_KSU
 +	{
 +		struct filename *ksu_name = getname(filename);
 +		if (!IS_ERR(ksu_name)) {
@@ -49,13 +57,29 @@
  	return do_faccessat(dfd, filename, mode);
  }
  
+diff --git a/fs/read_write.c b/fs/read_write.c
+index ec2d20d..95c4046 100644
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -588,6 +588,9 @@ ssize_t ksys_read(unsigned int fd, char __user *buf, size_t count)
+ 
+ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
+ {
++#ifdef CONFIG_KSU
++	ksu_handle_sys_read(fd, &buf, &count);
++#endif
+ 	return ksys_read(fd, buf, count);
+ }
+ 
+diff --git a/fs/stat.c b/fs/stat.c
+index 3765431..21fbd5e 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
-@@ -360,6 +360,15 @@
+@@ -360,6 +360,15 @@ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
  	struct kstat stat;
  	int error;
  
-+#ifdef CONFIG_KSU_MANUAL_HOOK
++#ifdef CONFIG_KSU
 +	{
 +		struct filename *ksu_name = getname(filename);
 +		if (!IS_ERR(ksu_name)) {
@@ -67,31 +91,31 @@
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
  		return error;
-@@ -375,6 +384,9 @@
+@@ -375,6 +384,9 @@ SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
  	if (!error)
  		error = cp_new_stat(&stat, statbuf);
  
-+#ifdef CONFIG_KSU_MANUAL_HOOK
++#ifdef CONFIG_KSU
 +	ksu_handle_newfstat_ret(&fd, &statbuf);
 +#endif
  	return error;
  }
  
-@@ -498,6 +510,9 @@
+@@ -498,6 +510,9 @@ SYSCALL_DEFINE2(fstat64, unsigned long, fd, struct stat64 __user *, statbuf)
  	struct kstat stat;
  	int error = vfs_fstat(fd, &stat);
  
-+#ifdef CONFIG_KSU_MANUAL_HOOK // for 32-bit
++#ifdef CONFIG_KSU // for 32-bit
 +	ksu_handle_fstat64_ret(&fd, &statbuf);
 +#endif
  	if (!error)
  		error = cp_new_stat64(&stat, statbuf);
  
-@@ -510,6 +525,15 @@
+@@ -510,6 +525,15 @@ SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
  	struct kstat stat;
  	int error;
  
-+#ifdef CONFIG_KSU_MANUAL_HOOK // 32-bit su
++#ifdef CONFIG_KSU // 32-bit su
 +	{
 +		struct filename *ksu_name = getname(filename);
 +		if (!IS_ERR(ksu_name)) {
@@ -103,15 +127,31 @@
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
  		return error;
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index 3a87fee..a7f769c 100644
 --- a/kernel/reboot.c
 +++ b/kernel/reboot.c
-@@ -308,6 +308,9 @@
+@@ -308,6 +308,9 @@ DEFINE_MUTEX(system_transition_mutex);
  SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
  		void __user *, arg)
  {
-+#ifdef CONFIG_KSU_MANUAL_HOOK
++#ifdef CONFIG_KSU
 +	ksu_handle_sys_reboot(magic1, magic2, cmd, &arg);
 +#endif
  	struct pid_namespace *pid_ns = task_active_pid_ns(current);
  	char buffer[256];
  	int ret = 0;
+diff --git a/kernel/sys.c b/kernel/sys.c
+index fa98ba2..e3a801b 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -625,6 +625,9 @@ SYSCALL_DEFINE1(setuid, uid_t, uid)
+  */
+ long __sys_setresuid(uid_t ruid, uid_t euid, uid_t suid)
+ {
++#ifdef CONFIG_KSU
++	ksu_handle_setresuid(ruid, euid, suid);
++#endif
+ 	struct user_namespace *ns = current_user_ns();
+ 	const struct cred *old;
+ 	struct cred *new;

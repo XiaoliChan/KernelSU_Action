@@ -87,10 +87,12 @@ static void compat_add_sus_path(void __user **user_info, bool is_loop)
 		return;
 
 	memset(&v155, 0, sizeof(v155));
-	/* v1.5.5 keys by pathname (it resolves and marks the inodes itself);
-	 * target_ino is informational in v1.5.5, so 0 is fine. */
+	/* v1.5.9 keys by pathname (it resolves and marks the inodes itself);
+	 * target_ino is informational, and i_uid is not part of the v2
+	 * manager payload -- 0 keeps hiding unscoped. */
 	strlcpy(v155.target_pathname, v2.target_pathname,
 		sizeof(v155.target_pathname));
+	v155.i_uid = 0;
 
 	if (copy_to_user(*user_info, &v155, sizeof(v155)))
 		return;

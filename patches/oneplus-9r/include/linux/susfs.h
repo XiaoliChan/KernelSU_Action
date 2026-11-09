@@ -29,12 +29,24 @@
 struct st_susfs_sus_path {
 	unsigned long                    target_ino;
 	char                             target_pathname[SUSFS_MAX_LEN_PATHNAME];
+	unsigned int                     i_uid;
 };
 
-struct st_susfs_sus_path_hlist {
-	unsigned long                    target_ino;
+struct st_susfs_sus_path_list {
+	struct list_head                 list;
+	struct st_susfs_sus_path         info;
 	char                             target_pathname[SUSFS_MAX_LEN_PATHNAME];
-	struct hlist_node                node;
+	size_t                           path_len;
+};
+
+struct st_android_data_path {
+	char                             pathname[SUSFS_MAX_LEN_PATHNAME];
+	bool                             is_inited;
+};
+
+struct st_sdcard_path {
+	char                             pathname[SUSFS_MAX_LEN_PATHNAME];
+	bool                             is_inited;
 };
 #endif
 
@@ -127,9 +139,9 @@ struct st_sus_su {
 /***********************/
 /* sus_path */
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
+int susfs_set_i_state_on_external_dir(char __user* user_info, int cmd);
 void susfs_add_sus_path(void __user **user_info);
 void susfs_add_sus_path_loop(void __user **user_info);
-int susfs_sus_ino_for_filldir64(unsigned long ino);
 #endif
 /* sus_mount */
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
@@ -181,6 +193,9 @@ struct filename* susfs_get_redirected_path(unsigned long ino);
 int susfs_get_sus_su_working_mode(void);
 int susfs_sus_su(struct st_sus_su* __user user_info);
 #endif
+
+void susfs_get_enabled_features(void __user **user_info);
+
 /* susfs_init */
 void susfs_init(void);
 
@@ -241,12 +256,13 @@ bool susfs_is_current_proc_umounted(void);
 bool susfs_is_current_proc_no_su(void);
 void susfs_set_sdcard_android_data_decrypted_key_false(void);
 
-/* v1.5.5 implementations, renamed (see fs/susfs.c), consumed by susfs_compat.c */
+/* v1.5.9 implementations, renamed (see fs/susfs.c), consumed by susfs_compat.c */
 int susfs_v159_add_sus_path(struct st_susfs_sus_path __user *user_info);
 int susfs_v159_add_sus_kstat(struct st_susfs_sus_kstat __user *user_info);
 int susfs_v159_update_sus_kstat(struct st_susfs_sus_kstat __user *user_info);
 int susfs_v159_set_uname(struct st_susfs_uname __user *user_info);
 int susfs_v159_set_cmdline_or_bootconfig(char __user *user_fake_boot_config);
 int susfs_v159_add_open_redirect(struct st_susfs_open_redirect __user *user_info);
+int susfs_v159_get_enabled_features(char __user *user_buf, size_t bufsize);
 
 #endif
