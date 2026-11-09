@@ -72,7 +72,9 @@ struct compat_v2_open_redirect {
 };
 
 extern void susfs_set_log(bool enabled);
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 extern void susfs_try_umount(uid_t target_uid);
+#endif
 
 static void susfs_compat_remember_umount_uid(void);
 
@@ -364,8 +366,10 @@ static void susfs_compat_remember_umount_uid(void)
  */
 static void susfs_extra_works_handler(struct work_struct *work)
 {
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 	if (atomic_xchg(&susfs_compat_umount_pending, 0))
 		susfs_try_umount(READ_ONCE(susfs_compat_umount_uid));
+#endif
 }
 
 struct work_struct susfs_extra_works;
