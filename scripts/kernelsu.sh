@@ -56,6 +56,10 @@ ksu_registry() {
 	resukisu)
 		# Re-fork of SukiSU-Ultra aimed at legacy/non-GKI kernels.
 		echo "https://github.com/ReSukiSU/ReSukiSU|main|KernelSU|main|main|-|ReSukiSU" ;;
+	bakasu)
+		# Continuation of the ReSukiSU codebase under a new name; same
+		# modular layout, actively maintained, multi-manager support.
+		echo "https://github.com/Baka-SU/BakaSU|main|KernelSU|main|main|-|BakaSU" ;;
 	rsuntk)
 		echo "https://github.com/rsuntk/KernelSU|main|KernelSU|main|main|susfs-rksu-master|RKSU (rsuntk)" ;;
 	backslashxx)
@@ -244,7 +248,7 @@ ksu_hook_configs() {
 			kernelsu-next)  kconf_enable "$defconfig" CONFIG_KSU_MANUAL_HOOK ;;
 			sukisu-ultra)
 				kconf_enable "$defconfig" CONFIG_KSU_MANUAL_HOOK ;;
-			resukisu)
+			resukisu | bakasu)
 				# ReSukiSU's non-GKI static export check requires the complete
 				# kallsyms table unless every internal SELinux symbol is exported
 				# manually by the vendor tree.

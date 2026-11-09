@@ -195,7 +195,7 @@ validate() {
 	esac
 
 	case "${CFG[KSU_VARIANT]}" in
-		none | kernelsu | kernelsu-next | sukisu-ultra | resukisu | rsuntk | backslashxx) ;;
+		none | kernelsu | kernelsu-next | sukisu-ultra | resukisu | bakasu | rsuntk | backslashxx) ;;
 		*) _err "unknown KSU_VARIANT '${CFG[KSU_VARIANT]}'" ;;
 	esac
 

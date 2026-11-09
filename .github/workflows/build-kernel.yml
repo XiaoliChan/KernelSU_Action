@@ -26,6 +26,7 @@ on:
           - kernelsu-next
           - sukisu-ultra
           - resukisu
+          - bakasu
           - rsuntk
           - backslashxx
       ksu_ref:

@@ -37,11 +37,12 @@
  			goto next;
 --- a/fs/Makefile
 +++ b/fs/Makefile
-@@ -15,6 +15,8 @@
+@@ -15,6 +15,9 @@
  		stack.o fs_struct.o statfs.o fs_pin.o nsfs.o \
  		fs_types.o fs_context.o fs_parser.o
  
 +obj-$(CONFIG_KSU_SUSFS) += susfs.o
++obj-$(CONFIG_KSU_SUSFS) += susfs_compat.o
 +
  ifeq ($(CONFIG_BLOCK),y)
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o

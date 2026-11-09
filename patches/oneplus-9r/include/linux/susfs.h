@@ -8,7 +8,7 @@
 #include <linux/path.h>
 #include <linux/susfs_def.h>
 
-#define SUSFS_VERSION "v1.5.5"
+#define SUSFS_VERSION "v1.5.9-v2compat"
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
 #define SUSFS_VARIANT "NON-GKI"
 #else
@@ -127,7 +127,8 @@ struct st_sus_su {
 /***********************/
 /* sus_path */
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info);
+void susfs_add_sus_path(void __user **user_info);
+void susfs_add_sus_path_loop(void __user **user_info);
 int susfs_sus_ino_for_filldir64(unsigned long ino);
 #endif
 /* sus_mount */
@@ -143,8 +144,8 @@ void susfs_auto_add_sus_ksu_default_mount(const char __user *to_pathname);
 
 /* sus_kstat */
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
-int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
+void susfs_add_sus_kstat(void __user **user_info);
+void susfs_update_sus_kstat(void __user **user_info);
 void susfs_sus_ino_for_generic_fillattr(unsigned long ino, struct kstat *stat);
 void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);
 #endif
@@ -158,7 +159,7 @@ void susfs_auto_add_try_umount_for_bind_mount(struct path *path);
 #endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 /* spoof_uname */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-int susfs_set_uname(struct st_susfs_uname* __user user_info);
+void susfs_set_uname(void __user **user_info);
 void susfs_spoof_uname(struct new_utsname* tmp);
 #endif
 /* set_log */
@@ -167,12 +168,12 @@ void susfs_set_log(bool enabled);
 #endif
 /* spoof_cmdline_or_bootconfig */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
-int susfs_set_cmdline_or_bootconfig(char* __user user_fake_boot_config);
+void susfs_set_cmdline_or_bootconfig(void __user **user_info);
 int susfs_spoof_cmdline_or_bootconfig(struct seq_file *m);
 #endif
 /* open_redirect */
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
-int susfs_add_open_redirect(struct st_susfs_open_redirect* __user user_info);
+void susfs_add_open_redirect(void __user **user_info);
 struct filename* susfs_get_redirected_path(unsigned long ino);
 #endif
 /* sus_su */
@@ -182,5 +183,70 @@ int susfs_sus_su(struct st_sus_su* __user user_info);
 #endif
 /* susfs_init */
 void susfs_init(void);
+
+
+/*************** v2 compatibility additions (fs/susfs_compat.c) ***************/
+
+#ifndef SUSFS_ENABLED_FEATURES_SIZE
+#define SUSFS_ENABLED_FEATURES_SIZE 8192
+#endif
+#ifndef SUSFS_VARIANT
+#define SUSFS_VARIANT "NON-GKI-COMPAT"
+#endif
+
+/* v2-only user-facing structs */
+struct st_susfs_hide_sus_mnts_for_non_su_procs {
+	bool                                    enabled;
+	int                                     err;
+};
+struct st_susfs_sus_map {
+	char                                    target_pathname[SUSFS_MAX_LEN_PATHNAME];
+	int                                     err;
+};
+struct st_susfs_avc_log_spoofing {
+	bool                                    enabled;
+	int                                     err;
+};
+struct st_susfs_log {
+	bool                                    enabled;
+	int                                     err;
+};
+struct st_susfs_enabled_features {
+	char                                    enabled_features[SUSFS_ENABLED_FEATURES_SIZE];
+	int                                     err;
+};
+struct st_susfs_variant {
+	char                                    susfs_variant[16];
+	int                                     err;
+};
+struct st_susfs_version {
+	char                                    susfs_version[16];
+	int                                     err;
+};
+
+/* v2 entry points implemented by fs/susfs_compat.c */
+void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info);
+void susfs_add_sus_map(void __user **user_info);
+void susfs_set_avc_log_spoofing(void __user **user_info);
+void susfs_enable_log(void __user **user_info);
+void susfs_get_enabled_features(void __user **user_info);
+void susfs_show_variant(void __user **user_info);
+void susfs_show_version(void __user **user_info);
+void susfs_start_sdcard_monitor_fn(void);
+void susfs_set_current_proc_umounted(void);
+void susfs_set_current_proc_umounted_for_zygote_next(void);
+void susfs_set_current_proc_no_su(void);
+void susfs_clear_current_proc_no_su(void);
+bool susfs_is_current_proc_umounted(void);
+bool susfs_is_current_proc_no_su(void);
+void susfs_set_sdcard_android_data_decrypted_key_false(void);
+
+/* v1.5.5 implementations, renamed (see fs/susfs.c), consumed by susfs_compat.c */
+int susfs_v159_add_sus_path(struct st_susfs_sus_path __user *user_info);
+int susfs_v159_add_sus_kstat(struct st_susfs_sus_kstat __user *user_info);
+int susfs_v159_update_sus_kstat(struct st_susfs_sus_kstat __user *user_info);
+int susfs_v159_set_uname(struct st_susfs_uname __user *user_info);
+int susfs_v159_set_cmdline_or_bootconfig(char __user *user_fake_boot_config);
+int susfs_v159_add_open_redirect(struct st_susfs_open_redirect __user *user_info);
 
 #endif

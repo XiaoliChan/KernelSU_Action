@@ -140,12 +140,15 @@ susfs_apply() {
 # Does the selected variant+ref already contain SUSFS?
 susfs_is_bundled() {
 	local bundled=${KSU_SUSFS_BUNDLED_REFS:--} ref=${KSU_REF_RESOLVED:-}
-	[ "$bundled" = "-" ] && return 1
-	local r
-	for r in $bundled; do
-		[ "$r" = "$ref" ] && return 0
-	done
-	# Fall back to inspecting the tree, which is authoritative.
+	if [ "$bundled" != "-" ]; then
+		local r
+		for r in $bundled; do
+			[ "$r" = "$ref" ] && return 0
+		done
+	fi
+	# Inspecting the tree is authoritative: any fork declaring the KSU_SUSFS
+	# menu itself (BakaSU/ReSukiSU main, SukiSU builtin) bundles the glue and
+	# must NOT get the flat-layout 10_enable patch applied on top.
 	local ksu_dir="${KERNEL_DIR}/${KSU_DIR:-KernelSU}"
 	[ -d "$ksu_dir" ] && grep -rqs 'CONFIG_KSU_SUSFS\|config KSU_SUSFS' "${ksu_dir}/kernel/Kconfig" 2>/dev/null
 }
@@ -325,6 +328,20 @@ hooks_patch_apply() {
 	kver=$(kernel_version "$KERNEL_DIR") || return 0
 
 	group "Applying manual syscall hooks (kernel ${kver})"
+
+	# Tree-adapted hook patches bundled in this repository (under
+	# patches/<SUSFS_LOCAL_DIR>/kernel_hooks/) take precedence: they match
+	# the exact hook API the selected variant expects on this kernel.
+	if [ -n "${SUSFS_LOCAL_DIR:-}" ]; then
+		local local_hook="${REPO_ROOT}/patches/${SUSFS_LOCAL_DIR}/kernel_hooks/kernel-${kver}.patch"
+		if [ -f "$local_hook" ]; then
+			if ( cd "$KERNEL_DIR" && apply_patch "$local_hook" 1 ); then
+				ok "applied bundled hook patch for kernel ${kver}"
+				endgroup; return 0
+			fi
+			warn "bundled hook patch for kernel ${kver} did not apply; falling back"
+		fi
+	fi
 
 	# ReSukiSU publishes scope-minimised hook patches keyed by kernel version.
 	if [ "$variant" = "resukisu" ]; then

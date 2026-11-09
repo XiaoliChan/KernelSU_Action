@@ -1,4 +1,4 @@
-name: Build OnePlus 9R
+name: Build OnePlus 9R (KernelSU+SUSFS)
 
 on:
   workflow_dispatch:
@@ -20,5 +20,5 @@ jobs:
       # the build job itself still runs read-only inside the called workflow.
       contents: write
     with:
-      config: config/oneplus-9r-lineage.env
+      config: config/oneplus-9r-lineage-kernelsu.env
       publish_release: ${{ inputs.publish_release }}
