@@ -47,23 +47,41 @@ susfs_apply() {
 
 	group "Applying SUSFS"
 
-	if [ "$branch" = "auto" ]; then
-		branch=$(susfs_branch_for "$kver")
-		[ -n "$branch" ] || die "no susfs4ksu branch is known for kernel ${kver}; set SUSFS_BRANCH explicitly.
-       Available: $(git ls-remote --heads "$repo" | awk '{print $2}' | sed 's@refs/heads/@@' | tr '\n' ' ')"
-		info "kernel ${kver} -> susfs branch '${branch}'"
+	local kp=""
+
+	# Tree-specific SUSFS patches bundled in this repository take precedence
+	# over a clone. SUSFS_LOCAL_DIR names a directory under patches/ laid out
+	# exactly like susfs4ksu's kernel_patches/ (fs/, include/linux/, the
+	# 50_add_* patch, KernelSU/10_enable_*). This is how patches adapted for
+	# trees that the frozen upstream no longer fits ship with the action
+	# itself, so no fork repo has to be maintained.
+	if [ -n "${SUSFS_LOCAL_DIR:-}" ]; then
+		kp="${REPO_ROOT}/patches/${SUSFS_LOCAL_DIR}"
+		[ -d "$kp" ] || die "SUSFS_LOCAL_DIR points at a missing directory: ${kp}"
+		branch="local:${SUSFS_LOCAL_DIR}"
+		info "using bundled SUSFS patches from patches/${SUSFS_LOCAL_DIR}"
 	fi
 
-	ref_exists "$repo" "$branch" \
-		|| die "susfs4ksu has no branch '${branch}'.
+	if [ -z "$kp" ]; then
+		if [ "$branch" = "auto" ]; then
+			branch=$(susfs_branch_for "$kver")
+			[ -n "$branch" ] || die "no susfs4ksu branch is known for kernel ${kver}; set SUSFS_BRANCH explicitly.
+       Available: $(git ls-remote --heads "$repo" | awk '{print $2}' | sed 's@refs/heads/@@' | tr '\n' ' ')"
+			info "kernel ${kver} -> susfs branch '${branch}'"
+		fi
+
+		ref_exists "$repo" "$branch" \
+			|| die "susfs4ksu has no branch '${branch}'.
        Available: $(git ls-remote --heads "$repo" | awk '{print $2}' | sed 's@refs/heads/@@' | tr '\n' ' ')"
 
-	local susfs_dir="${WORKSPACE}/susfs4ksu"
-	rm -rf "$susfs_dir"
-	retry 3 git clone -q --depth=1 -b "$branch" "$repo" "$susfs_dir" \
-		|| die "failed to clone ${repo} @ ${branch}"
+		local susfs_dir="${WORKSPACE}/susfs4ksu"
+		rm -rf "$susfs_dir"
+		retry 3 git clone -q --depth=1 -b "$branch" "$repo" "$susfs_dir" \
+			|| die "failed to clone ${repo} @ ${branch}"
 
-	local kp="${susfs_dir}/kernel_patches"
+		kp="${susfs_dir}/kernel_patches"
+	fi
+
 	[ -d "$kp" ] || die "unexpected susfs4ksu layout: ${kp} missing"
 
 	# 1. Drop in the SUSFS sources. The non-GKI branches carry sus_su.c too.

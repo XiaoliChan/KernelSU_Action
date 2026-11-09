@@ -61,6 +61,7 @@ declare -A DEFAULTS=(
 	[ENABLE_SUSFS]="false"
 	[SUSFS_REPO]="https://gitlab.com/simonpunk/susfs4ksu.git"
 	[SUSFS_BRANCH]="auto"
+	[SUSFS_LOCAL_DIR]=""
 	[ENABLE_PATH_UMOUNT]="false"
 	[ENABLE_HIDE_STUFF]="false"
 	[ENABLE_KPM]="false"
@@ -220,6 +221,18 @@ validate() {
 
 	if is_true "${CFG[BUILD_BOOT_IMG]}" && [ -z "${CFG[SOURCE_BOOT_IMAGE]}" ]; then
 		_err "BUILD_BOOT_IMG=true requires SOURCE_BOOT_IMAGE"
+	fi
+
+	# SUSFS_LOCAL_DIR bundles tree-adapted SUSFS patches inside this repo;
+	# it must exist or every build using the profile fails at patch time.
+	if [ -n "${CFG[SUSFS_LOCAL_DIR]}" ]; then
+		local repo_root local_dir
+		repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+		local_dir="${repo_root}/patches/${CFG[SUSFS_LOCAL_DIR]}"
+		[ -d "$local_dir" ] \
+			|| _err "SUSFS_LOCAL_DIR=${CFG[SUSFS_LOCAL_DIR]}: patches/${CFG[SUSFS_LOCAL_DIR]}/ does not exist in this repo"
+		ls "${local_dir}"/50_add_susfs_in_*.patch >/dev/null 2>&1 \
+			|| _err "patches/${CFG[SUSFS_LOCAL_DIR]}/ contains no 50_add_susfs_in_*.patch"
 	fi
 
 	if is_true "${CFG[USE_CUSTOM_CLANG]}" && [ -z "${CFG[CUSTOM_CLANG_SOURCE]}" ]; then
