@@ -33,6 +33,7 @@
 #include <linux/workqueue.h>
 #include <linux/fs.h>
 #include <linux/namei.h>
+#include <linux/string.h>
 #include <linux/susfs.h>
 #include <linux/susfs_def.h>
 
@@ -403,4 +404,56 @@ void susfs_set_avc_log_spoofing(void __user **user_info)
 void susfs_start_sdcard_monitor_fn(void)
 {
 	/* v2 sdcard anti-detection monitor; inert on v1.5.5 */
+}
+
+/* ------------------------------------- SukiSU-Ultra 'builtin' additions */
+
+/*
+ * String helpers its adb_root feature relies on (real implementations --
+ * they are plain suffix/prefix checks in v2 as well).
+ */
+bool susfs_starts_with(const char *str, const char *prefix)
+{
+	size_t n;
+
+	if (!str || !prefix)
+		return false;
+	n = strlen(prefix);
+	return strncmp(str, prefix, n) == 0;
+}
+
+bool susfs_ends_with(const char *str, const char *suffix)
+{
+	size_t ls, lf;
+
+	if (!str || !suffix)
+		return false;
+	ls = strlen(str);
+	lf = strlen(suffix);
+	return ls >= lf && strcmp(str + ls - lf, suffix) == 0;
+}
+
+/*
+ * v2 SELinux type/avd spoofing: called while the fork reloads sepolicy.
+ * v1.5.9 has no matching kernel-side machinery; accept and stay inert so
+ * policy loads proceed normally.
+ */
+int susfs_add_sus_type(const char *secctx, u32 type_value)
+{
+	return 0;
+}
+
+int susfs_add_sus_avd_allowed_by_type(u32 s_type, u32 t_type, u16 type,
+				      u32 orig_avd_allowed)
+{
+	return 0;
+}
+
+/* v2 priority uid filter -- inert on v1.5.9 */
+void susfs_set_priority_uid_filter(void __user **user_info)
+{
+}
+
+void susfs_parse_priority_app_strings(void)
+{
 }

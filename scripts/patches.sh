@@ -335,7 +335,8 @@ hooks_patch_apply() {
 	# The 'kernelsu' variant is excluded: v0.9.x expects the classic sed
 	# script hook API, which the bundled patch does not provide.
 	if [ -n "${SUSFS_LOCAL_DIR:-}" ] && [ "$variant" != "kernelsu" ]; then
-		local local_hook="${REPO_ROOT}/patches/${SUSFS_LOCAL_DIR}/kernel_hooks/kernel-${kver}.patch"
+		local local_hook="${REPO_ROOT}/patches/${SUSFS_LOCAL_DIR}/kernel_hooks/kernel-${kver}-${variant}.patch"
+		[ -f "$local_hook" ] || local_hook="${REPO_ROOT}/patches/${SUSFS_LOCAL_DIR}/kernel_hooks/kernel-${kver}.patch"
 		if [ -f "$local_hook" ]; then
 			if ( cd "$KERNEL_DIR" && apply_patch "$local_hook" 1 ); then
 				ok "applied bundled hook patch for kernel ${kver}"

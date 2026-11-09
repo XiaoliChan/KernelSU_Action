@@ -1,0 +1,20 @@
+name: Build OnePlus 9R (SukiSU-Ultra)
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish the build as a GitHub Release"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    # SukiSU-Ultra builtin + SUSFS v1.5.9 via the compat shim.
+    uses: ./.github/workflows/build-kernel.yml
+    permissions:
+      contents: write
+    with:
+      config: config/oneplus-9r-lineage-sukisu-ultra.env
+      publish_release: ${{ inputs.publish_release }}

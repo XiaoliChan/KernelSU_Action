@@ -256,6 +256,14 @@ bool susfs_is_current_proc_umounted(void);
 bool susfs_is_current_proc_no_su(void);
 void susfs_set_sdcard_android_data_decrypted_key_false(void);
 
+/* SukiSU-Ultra 'builtin' additions (fs/susfs_compat.c) */
+bool susfs_starts_with(const char *str, const char *prefix);
+bool susfs_ends_with(const char *str, const char *suffix);
+int susfs_add_sus_type(const char *secctx, u32 type_value);
+int susfs_add_sus_avd_allowed_by_type(u32 s_type, u32 t_type, u16 type, u32 orig_avd_allowed);
+void susfs_set_priority_uid_filter(void __user **user_info);
+void susfs_parse_priority_app_strings(void);
+
 /* v1.5.9 implementations, renamed (see fs/susfs.c), consumed by susfs_compat.c */
 int susfs_v159_add_sus_path(struct st_susfs_sus_path __user *user_info);
 int susfs_v159_add_sus_kstat(struct st_susfs_sus_kstat __user *user_info);
