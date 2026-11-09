@@ -91,6 +91,9 @@ static inline void susfs_set_current_non_root_user_app_proc(void) {
 /* v2-era supercall commands referenced by modern forks (BakaSU/SukiSU
  * dispatch includes this header). Compile-time only for their switch
  * statements; guarded against the v1.5.9 set already defined above. */
+#ifndef SUSFS_MAGIC
+#define SUSFS_MAGIC 0xFAFAFAFA
+#endif
 #ifndef CMD_SUSFS_ADD_SUS_PATH_LOOP
 #define CMD_SUSFS_ADD_SUS_PATH_LOOP 0x55553
 #endif
