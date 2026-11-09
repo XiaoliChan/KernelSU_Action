@@ -378,6 +378,25 @@ hooks_patch_apply() {
 
 # ======================================================================== KPM
 
+# Variant-specific KernelSU-side fixups: patches/<SUSFS_LOCAL_DIR>/ksu_fixes/
+# <variant>/*.patch are applied inside the installed KernelSU tree after the
+# susfs step -- e.g. 4.19 API compat guards a fork needs on this kernel.
+apply_variant_ksu_fixes() {
+	local variant=${KSU_VARIANT:-none}
+	local fixdir="${REPO_ROOT}/patches/${SUSFS_LOCAL_DIR:-}/ksu_fixes/${variant}"
+	[ -d "$fixdir" ] || return 0
+	local ksu_dir="${KERNEL_DIR}/${KSU_DIR:-KernelSU}"
+	[ -d "$ksu_dir" ] || return 0
+	group "Applying ${variant} KernelSU fixes"
+	local f
+	for f in "$fixdir"/*.patch; do
+		[ -f "$f" ] || continue
+		( cd "$ksu_dir" && apply_patch "$f" 1 ) \
+			|| die "variant fix $(basename "$f") did not apply to ${ksu_dir}"
+	done
+	endgroup
+}
+
 # SukiSU-Ultra's Kernel Patch Module support needs a post-link step: the
 # patch_linux tool rewrites the built Image and emits oImage.
 kpm_patch_image() {
@@ -425,6 +444,7 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
 
 			if is_true "${ENABLE_SUSFS:-false}";      then susfs_apply;      fi
 			if is_true "${ENABLE_HIDE_STUFF:-false}"; then hide_stuff_apply; fi
+			apply_variant_ksu_fixes
 			;;
 		*) die "unknown patch step '$1'" ;;
 	esac
