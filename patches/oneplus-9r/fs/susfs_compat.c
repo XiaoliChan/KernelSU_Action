@@ -30,6 +30,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <linux/sched.h>
+#include <linux/cred.h>
 #include <linux/workqueue.h>
 #include <linux/fs.h>
 #include <linux/namei.h>
