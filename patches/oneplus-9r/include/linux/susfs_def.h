@@ -91,6 +91,9 @@ static inline void susfs_set_current_non_root_user_app_proc(void) {
 /* v2-era supercall commands referenced by modern forks (BakaSU/SukiSU
  * dispatch includes this header). Compile-time only for their switch
  * statements; guarded against the v1.5.9 set already defined above. */
+#ifndef CMD_SUSFS_SET_PRIORITY_UID_FILTER
+#define CMD_SUSFS_SET_PRIORITY_UID_FILTER 0x60011
+#endif
 #ifndef SUSFS_MAGIC
 #define SUSFS_MAGIC 0xFAFAFAFA
 #endif
