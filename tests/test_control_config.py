@@ -76,7 +76,8 @@ class ControlConfigTests(unittest.TestCase):
     def test_diagnostic_ccache_paths_identity_and_failure_save(self):
         for workflow_name, profile_name in (
                 ('build-oneplus-9r-control.yml', 'oneplus-9r-lineage-control.env'),
-                ('build-oneplus-9r-sukisu-minimal.yml', 'oneplus-9r-lineage-sukisu-minimal.env')):
+                ('build-oneplus-9r-sukisu-minimal.yml', 'oneplus-9r-lineage-sukisu-minimal.env'),
+                ('build-oneplus-9r-sukisu-adbroot.yml', 'oneplus-9r-lineage-sukisu-adbroot.env')):
             workflow = yaml.safe_load((ROOT / '.github/workflows' / workflow_name).read_text())
             job = next(iter(workflow['jobs'].values()))
             self.assertEqual(job['env']['CCACHE_COMPILERCHECK'], 'content')
@@ -94,6 +95,19 @@ class ControlConfigTests(unittest.TestCase):
             compile_step = next(s for s in job['steps'] if s.get('id') == 'compile')
             self.assertEqual(compile_step['run'], 'bash scripts/build.sh compile')
             self.assertIn('ENABLE_CCACHE=true', (ROOT / 'config' / profile_name).read_text())
+
+    def test_adbroot_stage_adds_only_adbroot_to_minimal(self):
+        minimal = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-minimal-overrides.json').read_text())
+        adbroot = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-adbroot-overrides.json').read_text())
+        self.assertEqual(adbroot, {**minimal, 'CONFIG_KSU_FEATURE_ADBROOT': 'y'})
+        profile = (ROOT / 'config/oneplus-9r-lineage-sukisu-adbroot.env').read_text()
+        self.assertIn('ENABLE_SUSFS=false', profile)
+        self.assertIn('ENABLE_KPM=false', profile)
+        self.assertIn('CONFIG_KSU_DEBUG=n', profile)
+        wf = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-sukisu-adbroot.yml').read_text())
+        self.assertEqual(wf['permissions'], {'contents': 'read'})
+        self.assertNotIn('action-gh-release', str(wf))
+        self.assertIn('CONFIG_KSU_FEATURE_ADBROOT=y', str(wf))
 
     def test_minimal_werror_fixes_keep_strict_build_policy(self):
         hooks = (ROOT / 'patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch').read_text()
