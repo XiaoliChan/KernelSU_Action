@@ -69,12 +69,23 @@
 
 ## ADB-root + KPM 组合候选
 
-不是两个互斥的功能版本：`build-oneplus-9r-sukisu-kpm.yml` 和对应 profile 同时设置 `CONFIG_KSU_FEATURE_ADBROOT=y`、`CONFIG_KPM=y`，继续关闭 SUSFS/debug。构建 `42860708191` 正在进行，尚不能宣称 KPM 实机通过。
+不是两个互斥的功能版本：`build-oneplus-9r-sukisu-kpm.yml` 和对应 profile 同时设置 `CONFIG_KSU_FEATURE_ADBROOT=y`、`CONFIG_KPM=y`，继续关闭 SUSFS/debug。构建 `42860708191` 已成功并完成下述实机验证。
 
 修正旧 KPM 后处理链：固定版本的 `patch_linux` 实测可以退出 0 并产出 oImage，但日志中 kpimg 只有 `0x10`、版本为 0。不能用退出码或文件存在证明 KPM 生效。公开 release 0.14.0 的源码 ABI 也不是当前 SukiSU 要求的 ABI 2。
 
 现在从 KernelPatch 提交 `1c5b608916357ac86a94cc736e235db1fac4a29d` 同源构建真实 `kpimg` 与 `kptools`，ARM 编译器归档固定 SHA256。先检查两个头文件的实际数字 ABI 和三个 framing tag，再检查 payload 大小、版本、架构及 release 属性；只对启用 `CONFIG_KPM=y` 的 arm64 Image 执行后处理。随机 legacy key 经 stdin 传递，不写 argv 或清单。输出检查 `patched=true`、内嵌配置未变、模块数为 0，通过后才原子替换 Image。保留组件和输入/输出 SHA256 诊断清单。
 
-实机计划：只临时启动组合镜像；验证 ADB-root 仍有效、KPM bridge 支持状态、loader 版本和模块数，不加载 KPM 模块。通过后再在该组合基线上加入 SUSFS。
+实机结果：临时启动组合镜像后 `sys.boot_completed=1`，完整 `/proc/version` 匹配 `Tue Nov 10 17:10:32 UTC 2026`。ADB-root 为 enabled 且 shell UID 0；`ksud extension get kpm` 返回 available、ABI 2，`ksud kpm version` 返回 `3584 (17:10:15 Nov 10 2026)`，`ksud kpm num` 为 0。dmesg 显示 `sukisu_kpm_supercall_install done: 0`。没有加载模块。
+
+组合 boot SHA256：`c125497903c575309506468c18eae915a38b70e22eb072b1dfabd978176e706a`。本次没有永久刷入，回读 `boot_a` 仍等于上面已验证的 ADB-root 镜像。KPM 后处理会增加其他 `Linux version` 格式串，提取构建身份必须匹配具体 release 的完整 banner，不能取第一个 `Linux version` 字串。
 
 “完整”必须按当前内核支持范围限定：该固定 SukiSU 源码的 SELinux Hide 由 `LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)` 保护，4.19 不包含；当前管理器也报告 AVC Spoof 不支持。不能将所有显示 Unsupported 的选项都归因于尚未集成 SUSFS，也不能把配置开关齐全等同于每项运行时功能已验证。
+
+## SUSFS 组合诊断阶段
+
+`build-oneplus-9r-sukisu-susfs.yml` 从上述组合基线新增原生 4.19 SUSFS 功能；暂未完成实机验证。它不使用旧整套构建配置，保持原编译器、原 vermagic、ADB-root、KPM 和严格配置比较。
+
+- 继续使用已验证的 exec/read/fstat/reboot hooks，只追加 SUSFS 所需的 UID hook。UID hook 在凭据校验成功后、commit 前执行一次，使用解析后的实际 UID，而非可能为 `-1` 的 syscall 参数。旧 Suki 专用 hook 中重复三次的任务状态处理已移除，并同步 fstat 和声明顺序修复。
+- 启用有原生实现的 path/mount/kstat/uname/cmdline/open_redirect 等；禁用兼容层没有实现的 SUS_MAP。v2 的动态 mount 开关、AVC 和 map 兼容入口返回 `EOPNOTSUPP`，不能用“调用不报错”伪装功能有效。
+- 修正 `strlen` 的 printk 格式为 `%zu`，检查兼容层的 usercopy 返回值，保留 `CONFIG_CC_WERROR=y`。
+- 用户态 `ksud susfs` 自带 status/version/variant/features 查询，可先直接验证内核接口，无需为了显示支持而安装额外模块。
