@@ -277,7 +277,14 @@ jobs:
           # Validate the raw build output, but keep it in Actions artifacts only.
           # Recovery users need the AnyKernel3 zip, not a bare Image.
           images=(artifacts/*/"$KERNEL_IMAGE_NAME")
-          [ "${#images[@]}" -eq 1 ] && [ -s "${images[0]}" ] || { echo 'Kernel image missing or ambiguous'; exit 1; }
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo 'Kernel image missing or ambiguous'
+            exit 1
+          fi
+          if [ ! -s "${images[0]}" ]; then
+            echo 'Kernel image is empty'
+            exit 1
+          fi
           for f in artifacts/*/boot.img artifacts/*/dtbo.img; do
             [ -s "$f" ] || { echo "Empty asset: $f"; exit 1; }
             cp "$f" release/

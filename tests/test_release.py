@@ -78,6 +78,16 @@ class ReleaseTests(unittest.TestCase):
         self.image.unlink()
         self.assertNotEqual(self.prepare().returncode, 0)
 
+    def test_empty_image_fails(self):
+        self.image.write_bytes(b'')
+        self.assertNotEqual(self.prepare().returncode, 0)
+
+    def test_ambiguous_image_fails(self):
+        extra = self.artifacts / 'Image-extra'
+        extra.mkdir()
+        (extra / 'Image').write_bytes(b'another kernel')
+        self.assertNotEqual(self.prepare().returncode, 0)
+
     def test_multiple_archives_fail(self):
         shutil.copy(self.archive, self.ak3 / 'extra.zip')
         self.assertNotEqual(self.prepare().returncode, 0)
