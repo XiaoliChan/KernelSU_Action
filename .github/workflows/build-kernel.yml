@@ -274,11 +274,14 @@ jobs:
             done
           done
           [ "$zip_count" -eq 1 ] || { echo 'Expected exactly one AnyKernel3 zip'; exit 1; }
-          for f in artifacts/*/"$KERNEL_IMAGE_NAME" artifacts/*/boot.img artifacts/*/dtbo.img; do
+          # Validate the raw build output, but keep it in Actions artifacts only.
+          # Recovery users need the AnyKernel3 zip, not a bare Image.
+          images=(artifacts/*/"$KERNEL_IMAGE_NAME")
+          [ "${#images[@]}" -eq 1 ] && [ -s "${images[0]}" ] || { echo 'Kernel image missing or ambiguous'; exit 1; }
+          for f in artifacts/*/boot.img artifacts/*/dtbo.img; do
             [ -s "$f" ] || { echo "Empty asset: $f"; exit 1; }
             cp "$f" release/
           done
-          [ -s "release/$KERNEL_IMAGE_NAME" ] || { echo 'Kernel image missing'; exit 1; }
           (cd release && sha256sum -- * > SHA256SUMS)
           ls -la release/
 
@@ -301,6 +304,7 @@ jobs:
             Build log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             Flash the AnyKernel3 zip from a custom recovery.
+            Raw kernel images are available in Actions artifacts only, not as release assets.
             SHA256SUMS contains the checksums for all attached build artifacts.
           files: release/*
           fail_on_unmatched_files: true

@@ -36,7 +36,7 @@
 三个设备入口分别为 `build-oneplus-9r-kernelsu.yml`、`build-oneplus-9r-bakasu.yml`、`build-oneplus-9r-sukisu.yml`。
 手动运行后，默认在构建成功时自动创建 GitHub Release；取消 `publish_release` 即只保留 Artifacts。通用 `Build Kernel` 的发布仍默认关闭，不额外触发 push 或定时构建。
 
-Release 附带 AnyKernel3 刷机 ZIP、内核镜像、可选 boot/DTBO 及 `SHA256SUMS`。Tag 包含设备、分支、时间、run ID 和重跑次数，避免三个分支相互覆盖；这些设备构建不抢占仓库的 Latest 标记。
+Release 附带 AnyKernel3 刷机 ZIP、可选 boot/DTBO 及 `SHA256SUMS`，不附带裸 `Image`（仍保留在 Actions Artifacts 中用于排错）。Tag 包含设备、分支、时间、run ID 和重跑次数，避免三个分支相互覆盖；这些设备构建不抢占仓库的 Latest 标记。
 从 Release 下载的 AnyKernel3 ZIP 可直接使用；从 Actions Artifacts 下载时，需先解开外层 artifact ZIP，使用里面的 AnyKernel3 ZIP，**不要刷外层包**。
 补丁已知问题见 [OnePlus 9R 补丁审查](docs/oneplus-9r-review.md)，自动发布不代表已完成设备验证。
 

@@ -7,7 +7,7 @@
 The device workflows are `build-oneplus-9r-kernelsu.yml`, `build-oneplus-9r-bakasu.yml`, and `build-oneplus-9r-sukisu.yml`.
 Each manual run publishes a GitHub Release after a successful build by default; disable `publish_release` for artifacts only. The generic builder still defaults to no release. No push or scheduled build trigger is added.
 
-Releases include the prebuilt AnyKernel3 ZIP, kernel image, optional boot/DTBO images, and `SHA256SUMS`. Tags include device, variant, timestamp, run ID, and attempt to avoid collisions. Device builds do not replace the repository's Latest release.
+Releases include the prebuilt AnyKernel3 ZIP, optional boot/DTBO images, and `SHA256SUMS`. Raw kernel images are kept in Actions Artifacts for debugging, not uploaded to Releases. Tags include device, variant, timestamp, run ID, and attempt to avoid collisions. Device builds do not replace the repository's Latest release.
 Use the AnyKernel3 ZIP directly from Releases. When downloading through Actions Artifacts, extract the outer artifact ZIP first and flash the inner AnyKernel3 ZIP, **not the outer archive**.
 See the [OnePlus 9R patch review (Chinese)](docs/oneplus-9r-review.md) for known issues; automatic publication does not imply device validation.
 

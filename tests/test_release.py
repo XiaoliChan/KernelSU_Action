@@ -44,13 +44,27 @@ class ReleaseTests(unittest.TestCase):
         result = self.prepare()
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         release = self.work / 'release'
-        self.assertEqual(len(list(release.iterdir())), 5)
+        self.assertEqual(len(list(release.iterdir())), 4)
+        self.assertFalse((release / 'Image').exists())
         subprocess.run(['sha256sum', '-c', 'SHA256SUMS'], cwd=release, check=True,
                        capture_output=True)
         self.assertEqual(self.archive.read_bytes(), (release / self.archive.name).read_bytes())
 
     def test_no_optional_assets(self):
         self.assertEqual(self.prepare().returncode, 0)
+        self.assertEqual({p.name for p in (self.work / 'release').iterdir()},
+                         {self.archive.name, 'SHA256SUMS'})
+        self.assertNotIn('  Image\n', (self.work / 'release/SHA256SUMS').read_text())
+        with zipfile.ZipFile(self.work / 'release' / self.archive.name) as z:
+            self.assertEqual(z.read('Image'), b'kernel fixture')
+
+    def test_compressed_raw_image_not_released(self):
+        self.image.rename(self.image.with_name('Image.gz-dtb'))
+        result = subprocess.run(['bash', '-c', PREPARE], cwd=self.work,
+                                env={**os.environ, 'KERNEL_IMAGE_NAME': 'Image.gz-dtb'},
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertFalse((self.work / 'release/Image.gz-dtb').exists())
 
     def test_missing_zip_fails(self):
         self.archive.unlink()
