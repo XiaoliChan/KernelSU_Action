@@ -275,7 +275,10 @@ void susfs_get_enabled_features(void __user **user_info)
 #endif
 	scnprintf(buf + len, sizeof(buf) - len, "(%s)", SUSFS_VERSION);
 
-	copy_to_user(*user_info, buf, strlen(buf) + 1);
+	if (copy_to_user(*user_info, buf, strlen(buf) + 1)) {
+		put_user(-EFAULT, &((struct st_susfs_enabled_features __user *)*user_info)->err);
+		return;
+	}
 	put_user(0, &((struct st_susfs_enabled_features __user *)*user_info)->err);
 }
 
@@ -288,7 +291,8 @@ void susfs_show_variant(void __user **user_info)
 	memset(&v, 0, sizeof(v));
 	strlcpy(v.susfs_variant, SUSFS_VARIANT, sizeof(v.susfs_variant));
 	v.err = 0;
-	copy_to_user(*user_info, &v, sizeof(v));
+	if (copy_to_user(*user_info, &v, sizeof(v)))
+		return;
 }
 
 void susfs_show_version(void __user **user_info)
@@ -300,7 +304,8 @@ void susfs_show_version(void __user **user_info)
 	memset(&v, 0, sizeof(v));
 	strlcpy(v.susfs_version, SUSFS_VERSION, sizeof(v.susfs_version));
 	v.err = 0;
-	copy_to_user(*user_info, &v, sizeof(v));
+	if (copy_to_user(*user_info, &v, sizeof(v)))
+		return;
 }
 
 /* ------------------------------------------------- task state (v2 TIFs) */
@@ -396,25 +401,22 @@ late_initcall(susfs_compat_init);
 
 void susfs_set_hide_sus_mnts_for_non_su_procs(void __user **user_info)
 {
-	struct st_susfs_hide_sus_mnts_for_non_su_procs req;
-
-	/* accepted but not stored: v1.5.5 spoofs sus mount ids
-	 * unconditionally, which covers the common use of this toggle */
+	/* The legacy mount-ID hooks have no runtime v2 switch. */
 	if (user_info && *user_info)
-		copy_from_user(&req, *user_info, sizeof(req));
+		put_user(-EOPNOTSUPP, &((struct st_susfs_hide_sus_mnts_for_non_su_procs __user *)*user_info)->err);
 }
 
 void susfs_add_sus_map(void __user **user_info)
 {
 	/* v2 sus_map has no v1.5.5 consumer */
+	if (user_info && *user_info)
+		put_user(-EOPNOTSUPP, &((struct st_susfs_sus_map __user *)*user_info)->err);
 }
 
 void susfs_set_avc_log_spoofing(void __user **user_info)
 {
-	struct st_susfs_avc_log_spoofing req;
-
 	if (user_info && *user_info)
-		copy_from_user(&req, *user_info, sizeof(req));
+		put_user(-EOPNOTSUPP, &((struct st_susfs_avc_log_spoofing __user *)*user_info)->err);
 }
 
 void susfs_start_sdcard_monitor_fn(void)

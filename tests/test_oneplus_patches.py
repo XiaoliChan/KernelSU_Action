@@ -192,6 +192,68 @@ int main(void) {
                               'copy_from_user(', 'return'):
                 self.assertNotIn(forbidden, locked, name)
 
+    def test_susfs_queries_and_unsupported_v2_controls(self):
+        source = r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#define __user
+#define SUSFS_MAX_LEN_PATHNAME 256
+#define SUSFS_ENABLED_FEATURES_SIZE 8192
+#define SUSFS_VERSION "v1.5.9-v2compat"
+#define SUSFS_VARIANT "NON-GKI"
+#define CONFIG_KSU_SUSFS_SUS_PATH 1
+#define CONFIG_KSU_SUSFS_SUS_KSTAT 1
+#define CONFIG_KSU_SUSFS_SPOOF_UNAME 1
+#define CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG 1
+#define CONFIG_KSU_SUSFS_OPEN_REDIRECT 1
+#define scnprintf snprintf
+#define put_user(value, ptr) (*(ptr) = (value))
+#define strlcpy(to, from, n) snprintf(to, n, "%s", from)
+static int copy_fault;
+static __attribute__((warn_unused_result)) int copy_to_user(void *to, const void *from, size_t n) {
+    if (copy_fault) return 1;
+    memcpy(to, from, n); return 0;
+}
+'''
+        for name in ('enabled_features', 'variant', 'version', 'sus_map',
+                     'hide_sus_mnts_for_non_su_procs', 'avc_log_spoofing'):
+            source += structure(HEADER, 'st_susfs_' + name) + '\n'
+        for name in ('get_enabled_features', 'show_variant', 'show_version',
+                     'set_hide_sus_mnts_for_non_su_procs', 'add_sus_map', 'set_avc_log_spoofing'):
+            source += function(COMPAT, 'susfs_' + name) + '\n'
+        source += r'''
+int main(void) {
+    struct st_susfs_version version = {.err = -123};
+    struct st_susfs_variant variant = {.err = -123};
+    struct st_susfs_enabled_features features = {.err = -123};
+    struct st_susfs_sus_map map = {.err = -123};
+    struct st_susfs_avc_log_spoofing avc = {.enabled = true, .err = -123};
+    struct st_susfs_hide_sus_mnts_for_non_su_procs mount = {.enabled = true, .err = -123};
+    void *user = &version;
+    susfs_show_version(&user);
+    assert(version.err == 0 && !strcmp(version.susfs_version, SUSFS_VERSION));
+    user = &variant; susfs_show_variant(&user);
+    assert(variant.err == 0 && !strcmp(variant.susfs_variant, "NON-GKI"));
+    user = &features; susfs_get_enabled_features(&user);
+    assert(features.err == 0 && strstr(features.enabled_features, "sus_path"));
+    assert(!strstr(features.enabled_features, "sus_map"));
+    copy_fault = 1; susfs_get_enabled_features(&user);
+    assert(features.err == -EFAULT);
+    user = &map; susfs_add_sus_map(&user); assert(map.err == -EOPNOTSUPP);
+    user = &avc; susfs_set_avc_log_spoofing(&user);
+    assert(avc.enabled && avc.err == -EOPNOTSUPP);
+    user = &mount; susfs_set_hide_sus_mnts_for_non_su_procs(&user);
+    assert(mount.enabled && mount.err == -EOPNOTSUPP);
+    user = NULL; susfs_show_version(&user); susfs_add_sus_map(&user);
+    susfs_get_enabled_features(NULL);
+    return 0;
+}
+'''
+        self.compile_run(source)
+
     def test_modern_hooks_consume_modified_filenames(self):
         for path in (PATCHES / 'kernel_hooks').glob('*.patch'):
             text = path.read_text()
