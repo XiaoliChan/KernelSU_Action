@@ -1,0 +1,111 @@
+name: Build OnePlus 9R (Stock control)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oneplus-9r-control-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      WORKSPACE: ${{ github.workspace }}/kernel_workspace
+      CONFIG_ENV: config/oneplus-9r-lineage-control.env
+      REFERENCE_KERNEL_COMMIT: 078365e5318de0a30a41f9707070b610bcd20f13
+      REFERENCE_CONFIG: ${{ github.workspace }}/config/reference/oneplus-9r-lineage-24.config
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve diagnostic profile
+        run: bash scripts/config.sh
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: true
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - name: Prepare runner
+        run: |
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential cpio curl device-tree-compiler flex git \
+            libelf-dev libssl-dev lz4 make python3 rsync unzip zip zstd libncurses-dev
+          mkdir -p "$WORKSPACE/diagnostics"
+
+      - name: Fetch reference compiler
+        run: bash scripts/toolchain.sh
+
+      - name: Fetch kernel source
+        run: bash scripts/source.sh
+
+      - name: Pin source and install working-device configuration
+        run: |
+          git -C "$KERNEL_DIR" fetch -q --depth=1 origin "$REFERENCE_KERNEL_COMMIT"
+          git -C "$KERNEL_DIR" checkout -q --detach "$REFERENCE_KERNEL_COMMIT"
+          git -C "$KERNEL_DIR" submodule update --init --recursive
+          test "$(git -C "$KERNEL_DIR" rev-parse HEAD)" = "$REFERENCE_KERNEL_COMMIT"
+          echo "f3a54b3a28fa78aab76c24ecc435ab56be5b6cf58cdb31c1ebcb5c8642ba32ba  $REFERENCE_CONFIG" | sha256sum -c -
+          cp "$REFERENCE_CONFIG" "$KERNEL_DIR/arch/arm64/configs/$KERNEL_CONFIG"
+          git -C "$KERNEL_DIR" rev-parse HEAD > "$WORKSPACE/diagnostics/kernel-commit.txt"
+          "$CLANG_PATH/clang" --version > "$WORKSPACE/diagnostics/compiler.txt"
+
+      # Deliberately no kernelsu.sh installer and no patches.sh invocation.
+      - name: Generate and verify effective config before compiling
+        run: |
+          . scripts/build.sh
+          prepare_defconfig
+          export PATH="$CLANG_PATH:$PATH"
+          unset DISABLE_LTO
+          args=$(make_args)
+          # shellcheck disable=SC2086
+          make -C "$KERNEL_DIR" CC=clang $args "$KERNEL_CONFIG"
+          cp "$KERNEL_DIR/out/.config" "$WORKSPACE/diagnostics/kernel.config"
+          python3 scripts/compare-kconfig.py "$REFERENCE_CONFIG" "$KERNEL_DIR/out/.config" \
+            --report "$WORKSPACE/diagnostics/config-comparison.json"
+
+      - name: Compile control kernel
+        run: bash scripts/build.sh compile
+
+      - name: Verify final config and output
+        run: |
+          bash scripts/build.sh check
+          cp "$KERNEL_DIR/out/.config" "$WORKSPACE/diagnostics/kernel.config"
+          python3 scripts/compare-kconfig.py "$REFERENCE_CONFIG" "$KERNEL_DIR/out/.config" \
+            --report "$WORKSPACE/diagnostics/config-comparison.json"
+          cp "$KERNEL_DIR/out/arch/arm64/boot/Image" "$WORKSPACE/diagnostics/Image"
+
+      - name: Package diagnostic artifact (not a release)
+        run: bash scripts/package.sh anykernel3
+
+      - name: Check actual installer
+        run: |
+          python3 tests/check_anykernel_slots.py "$ANYKERNEL3_ZIP"
+          python3 tests/check_anykernel_devices.py "$ANYKERNEL3_ZIP"
+          cp "$ANYKERNEL3_ZIP" "$WORKSPACE/diagnostics/"
+
+      - name: Upload diagnostics even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnePlus9R-stock-control-${{ github.run_id }}
+          path: kernel_workspace/diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # No release job, no write token, and no publish_release input.
