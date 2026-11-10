@@ -208,14 +208,17 @@ int main(void) {
         for path in (PATCHES / 'kernel_hooks').glob('*.patch'):
             text = path.read_text()
             # Reconstruct the new side of each diff, including context lines.
-            def new_side(file):
+            def new_side(file, marker=None):
                 section = text.split(f'diff --git a/{file} b/{file}\n')[1].split('diff --git ')[0]
+                if marker:
+                    section = next(part for part in re.split(r'^@@.*@@.*$', section, flags=re.M)
+                                   if marker in part)
                 return '\n'.join(line[1:] for line in section.splitlines()
                                  if (line.startswith('+') and not line.startswith('+++'))
                                  or line.startswith(' '))
             opening = new_side('fs/open.c')
             opening = opening[opening.index('#ifdef CONFIG_KSU'):opening.index('\n\tif (res)')]
-            stat = new_side('fs/stat.c')
+            stat = new_side('fs/stat.c', 'getname_flags')
             stat = stat[stat.index('#ifdef CONFIG_KSU'):stat.index('\n\tif (error)')]
             execve = new_side('fs/exec.c')
             execve = execve[execve.index('#ifdef CONFIG_KSU'):execve.index('\n}')]
