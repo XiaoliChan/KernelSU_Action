@@ -4,6 +4,8 @@
 
 ## OnePlus 9R automatic releases
 
+**Current device validation track:** minimal and ADB-root boot successfully on LineageOS `24.0-20261107`; ADB-root is permanently installed and its boot partition read-back hash is verified. `build-oneplus-9r-sukisu-kpm.yml` adds only `CONFIG_KPM=y` to that reference configuration and compiler, building the real payload from pinned ABI-v2 KernelPatch source. It includes no SUSFS or KPM modules and does not publish unverified candidates. Test with `fastboot boot`; the legacy release workflows below are not a substitute for this staged validation.
+
 The regular 9R device workflows are `build-oneplus-9r-bakasu.yml` and `build-oneplus-9r-sukisu.yml`. The original-KernelSU 9R entry and profile have been removed; generic original-KernelSU support for other devices remains available.
 Each manual run publishes a GitHub Release after a successful build by default; disable `publish_release` for artifacts only. The generic builder still defaults to no release. No push or scheduled build trigger is added.
 

@@ -397,24 +397,20 @@ apply_variant_ksu_fixes() {
 	endgroup
 }
 
-# SukiSU-Ultra's Kernel Patch Module support needs a post-link step: the
-# patch_linux tool rewrites the built Image and emits oImage.
+# Build and verify the real ABI-matched payload; an opaque patch_linux wrapper
+# can return success even with a stub kpimg. Never accept oImage existence alone.
 kpm_patch_image() {
 	local image=$1
-	group "Applying KPM (patch_linux)"
-	local dir tool
-	dir=$(sukisu_patch_dir)
-	tool="${dir}/kpm/patch_linux"
-	[ -f "$tool" ] || die "kpm/patch_linux not found in ${SUKISU_PATCH_REPO}"
-	chmod +x "$tool"
-	( cd "$(dirname "$image")" && "$tool" "$(basename "$image")" ) \
-		|| die "patch_linux failed"
-	local out
-	out="$(dirname "$image")/oImage"
-	[ -f "$out" ] || die "patch_linux did not produce oImage"
-	mv -f "$out" "$image"
+	group "Applying verified KPM payload (ABI v2)"
+	local dir="${WORKSPACE}/kpm-components"
+	if [ ! -f "$dir/manifest.json" ]; then
+		bash "$REPO_ROOT/scripts/prepare-kpm.sh"
+	fi
+	python3 "$REPO_ROOT/scripts/kpm-components.py" patch "$dir" \
+		"$KERNEL_DIR/${KSU_DIR:-KernelSU}/kernel/extension/kpm/bridge.h" \
+		"$image" "$WORKSPACE/diagnostics"
 	ok "KPM applied to $(basename "$image")"
-	summary "| KPM | applied |"
+	summary "| KPM | ABI v2, real payload, no bundled modules |"
 	endgroup
 }
 

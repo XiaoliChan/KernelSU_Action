@@ -77,7 +77,8 @@ class ControlConfigTests(unittest.TestCase):
         for workflow_name, profile_name in (
                 ('build-oneplus-9r-control.yml', 'oneplus-9r-lineage-control.env'),
                 ('build-oneplus-9r-sukisu-minimal.yml', 'oneplus-9r-lineage-sukisu-minimal.env'),
-                ('build-oneplus-9r-sukisu-adbroot.yml', 'oneplus-9r-lineage-sukisu-adbroot.env')):
+                ('build-oneplus-9r-sukisu-adbroot.yml', 'oneplus-9r-lineage-sukisu-adbroot.env'),
+                ('build-oneplus-9r-sukisu-kpm.yml', 'oneplus-9r-lineage-sukisu-kpm.env')):
             workflow = yaml.safe_load((ROOT / '.github/workflows' / workflow_name).read_text())
             job = next(iter(workflow['jobs'].values()))
             self.assertEqual(job['env']['CCACHE_COMPILERCHECK'], 'content')

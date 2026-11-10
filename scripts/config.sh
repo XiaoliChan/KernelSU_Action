@@ -223,7 +223,7 @@ validate() {
 			_err "ENABLE_KPM requires KSU_VARIANT=sukisu-ultra"
 	fi
 
-	# KPM is a SukiSU-Ultra feature and its patch_linux tool is 64-bit only.
+	# The pinned KPM payload and SukiSU bridge target arm64.
 	if is_true "${CFG[ENABLE_KPM]}"; then
 		[ "${CFG[KSU_VARIANT]}" = "sukisu-ultra" ] ||
 			_err "ENABLE_KPM is only supported with KSU_VARIANT=sukisu-ultra (got '${CFG[KSU_VARIANT]}')"
