@@ -73,6 +73,40 @@ class ControlConfigTests(unittest.TestCase):
         self.assertIn('ksu_handle_vfs_fstat(fd, &stat->size)', hooks)
         self.assertIn('!error && (stat->result_mask & STATX_SIZE)', hooks)
 
+    def test_diagnostic_ccache_paths_identity_and_failure_save(self):
+        for workflow_name, profile_name in (
+                ('build-oneplus-9r-control.yml', 'oneplus-9r-lineage-control.env'),
+                ('build-oneplus-9r-sukisu-minimal.yml', 'oneplus-9r-lineage-sukisu-minimal.env')):
+            workflow = yaml.safe_load((ROOT / '.github/workflows' / workflow_name).read_text())
+            job = next(iter(workflow['jobs'].values()))
+            self.assertEqual(job['env']['CCACHE_COMPILERCHECK'], 'content')
+            self.assertEqual(job['env']['CCACHE_DIR'], '${{ github.workspace }}/kernel_workspace/.ccache')
+            restore = next(s for s in job['steps'] if s.get('id') == 'ccache')
+            save = next(s for s in job['steps'] if s.get('uses') == 'actions/cache/save@v4')
+            self.assertEqual(restore['with']['path'], '${{ env.CCACHE_DIR }}')
+            self.assertEqual(save['with']['path'], restore['with']['path'])
+            self.assertEqual(save['with']['key'], '${{ steps.ccache.outputs.cache-primary-key }}')
+            self.assertIn('github.run_id', restore['with']['key'])
+            self.assertIn('github.run_attempt', restore['with']['key'])
+            self.assertIn('always()', save['if'])
+            self.assertIn("steps.compile.outcome == 'failure'", save['if'])
+            self.assertTrue(save['continue-on-error'])
+            compile_step = next(s for s in job['steps'] if s.get('id') == 'compile')
+            self.assertEqual(compile_step['run'], 'bash scripts/build.sh compile')
+            self.assertIn('ENABLE_CCACHE=true', (ROOT / 'config' / profile_name).read_text())
+
+    def test_minimal_werror_fixes_keep_strict_build_policy(self):
+        hooks = (ROOT / 'patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch').read_text()
+        reboot = hooks.split('diff --git a/kernel/reboot.c b/kernel/reboot.c')[1]
+        self.assertLess(reboot.index('int ret = 0;'), reboot.index('+\tksu_handle_sys_reboot('))
+        fixes = (ROOT / 'patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/002-nonsusfs-werror.patch').read_text()
+        self.assertIn('+#ifndef KSU_NO_PREINIT', fixes)
+        self.assertEqual(fixes.count('+#ifdef CONFIG_KSU_SUSFS'), 2)
+        self.assertIn('+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)', fixes)
+        profile = (ROOT / 'config/oneplus-9r-lineage-sukisu-minimal.env').read_text()
+        self.assertIn('DISABLE_CC_WERROR=false', profile)
+        self.assertNotIn('-Wno-error', profile)
+
     def test_control_has_no_release_or_root_installation(self):
         workflow = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-control.yml').read_text())
         self.assertEqual(workflow['permissions'], {'contents': 'read'})

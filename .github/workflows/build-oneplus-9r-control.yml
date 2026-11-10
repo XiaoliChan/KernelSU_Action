@@ -19,6 +19,9 @@ jobs:
       CONFIG_ENV: config/oneplus-9r-lineage-control.env
       REFERENCE_KERNEL_COMMIT: 078365e5318de0a30a41f9707070b610bcd20f13
       REFERENCE_CONFIG: ${{ github.workspace }}/config/reference/oneplus-9r-lineage-24.config
+      CCACHE_DIR: ${{ github.workspace }}/kernel_workspace/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
     steps:
       - uses: actions/checkout@v4
 
@@ -44,9 +47,25 @@ jobs:
           sudo swapon /mnt/swapfile
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            bc bison build-essential cpio curl device-tree-compiler flex git \
+            bc bison build-essential ccache cpio curl device-tree-compiler flex git \
             libelf-dev libssl-dev lz4 make python3 rsync unzip zip zstd libncurses-dev
           mkdir -p "$WORKSPACE/diagnostics"
+
+      - name: Restore compiler cache
+        id: ccache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: oneplus9r-llvm15071444-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            oneplus9r-llvm15071444-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Configure compiler cache
+        run: |
+          mkdir -p "$CCACHE_DIR"
+          ccache --max-size=3G
+          ccache --zero-stats
 
       - name: Fetch reference compiler
         run: bash scripts/toolchain.sh
@@ -80,6 +99,7 @@ jobs:
             --report "$WORKSPACE/diagnostics/config-comparison.json"
 
       - name: Compile control kernel
+        id: compile
         run: bash scripts/build.sh compile
 
       - name: Verify final config and output
@@ -98,6 +118,25 @@ jobs:
           python3 tests/check_anykernel_slots.py "$ANYKERNEL3_ZIP"
           python3 tests/check_anykernel_devices.py "$ANYKERNEL3_ZIP"
           cp "$ANYKERNEL3_ZIP" "$WORKSPACE/diagnostics/"
+
+      - name: Record compiler cache statistics
+        if: ${{ always() && (steps.compile.outcome == 'success' || steps.compile.outcome == 'failure') }}
+        run: |
+          ccache --show-stats | tee "$WORKSPACE/diagnostics/ccache-stats.txt"
+          {
+            echo '### ccache statistics'
+            echo '```text'
+            cat "$WORKSPACE/diagnostics/ccache-stats.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save compiler cache even after compile errors
+        if: ${{ always() && steps.ccache.outcome == 'success' && (steps.compile.outcome == 'success' || steps.compile.outcome == 'failure') }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
 
       - name: Upload diagnostics even on failure
         if: always()
