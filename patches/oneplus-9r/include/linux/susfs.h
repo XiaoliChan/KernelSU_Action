@@ -265,6 +265,10 @@ void susfs_set_priority_uid_filter(void __user **user_info);
 void susfs_parse_priority_app_strings(void);
 
 /* v1.5.9 implementations, renamed (see fs/susfs.c), consumed by susfs_compat.c */
+int susfs_add_sus_path_kernel(const struct st_susfs_sus_path *request);
+int susfs_add_sus_kstat_kernel(const struct st_susfs_sus_kstat *request);
+int susfs_update_sus_kstat_kernel(const struct st_susfs_sus_kstat *request);
+int susfs_add_open_redirect_kernel(const struct st_susfs_open_redirect *request);
 int susfs_v159_add_sus_path(struct st_susfs_sus_path __user *user_info);
 int susfs_v159_add_sus_kstat(struct st_susfs_sus_kstat __user *user_info);
 int susfs_v159_update_sus_kstat(struct st_susfs_sus_kstat __user *user_info);

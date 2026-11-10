@@ -1,8 +1,30 @@
 # OnePlus 9R 补丁审查
 
 审查基线：`9057d14`。范围为 `patches/oneplus-9r/` 以及三个设备配置的接入链路。
-结论：发现 5 项应修复的问题；当前补丁不能仅凭链接成功认定兼容层正确。
-本次只修改工作流与打包发布，以下内核问题均未修改。验证为静态调用链检查与本地最小探针，不代表完整内核编译或设备复现。
+原审查发现的 5 项问题现已完成代码修复与本地回归验证。以下问题描述和行号保留为修复前基线证据，不代表当前代码仍原样存在；完整内核编译交由三个 GitHub Actions 工作流，设备启动与实际功能仍需实机验证。
+
+## 修复结果
+
+- 路径、kstat、open_redirect 拆出内核结构入口，v1 用户入口保留；v2 转换不再回写整个 v1 结构，只更新自己的 `err`，并拒绝未终止字符串。
+- 非 root 应用分类统一使用 `task_struct.susfs_task_state` bit 24；v2 已卸载状态仍使用 thread flag 33。现代分支的 setresuid hook 根据 no-su 状态显式更新分类，避免 faccessat 中按 UID 一刀切。
+- faccessat 和 stat 把修改后的 `struct filename` 交给 `filename_lookup` 消费；保留 LOOKUP_EMPTY、符号链接标志和 ESTALE 重试，不额外 putname。
+- exec hook 移到 native/compat 共用的 `do_execveat_common`，在执行前调用，传递真实 fd/flags 地址，覆盖 execve 与 execveat。
+- kstat 路径解析和分配在锁外完成，更新在锁内原位重挂哈希；两个哈希读者也持同一把锁，防止替换释放与读取并发。
+- 同时修复普通 sus_path 被未初始化的空目录前缀误匹配，以及 `d_path` 错误指针判断。
+
+本地共 13 项测试通过，其中新增 5 项补丁回归包含对真实函数提取代码的 C 编译执行、UBSan、用户缓冲区哨兵、错误回传、状态隔离及 hook 参数传递；另有锁区静态检查。
+三套配置均从干净上游文件应用 path_umount、hooks、SUSFS、hide_stuff 及分支 fixups 并完成 defconfig 注入，没有补丁拒绝。
+
+验证源码：
+
+| 组件 | 引用 |
+| --- | --- |
+| LineageOS SM8250 lineage-24.0 | `078365e5318de0a30a41f9707070b610bcd20f13` |
+| KernelSU | `v0.9.5` |
+| BakaSU main | `548d1dda060ca198823d8808804d01f5209ef4a9` |
+| SukiSU-Ultra builtin | `1cfa57340590971cba7521ed536da8ebbedc5f0a` |
+
+两个现代分支的设备配置已固定到上述提交，避免重建时接口随分支变化。内核补丁应用验证使用完整的受影响文件集，不是本地完整内核编译。
 
 ## P1 v2 路径请求回写超过调用方结构大小
 
@@ -66,7 +88,7 @@ v2=260 v159=272 overwrite=12
 
 - `fs/susfs_compat.c:352-371` 用单个全局 UID 和 pending 位近似多请求队列，连续请求会覆盖。workqueue 回调也未保存调用进程的挂载命名空间；仅传 UID 不等于切换 namespace。需要对实际分支的卸载函数和调度点核对。
 - sus_map、sdcard monitor、AVC spoofing、priority UID filter 等仍为空实现。Kconfig 存在或 manager 调用不报错，不代表功能有效。
-- 本次未下载完整内核和三个上游源码快照，未验证补丁在当前移动分支上的 clean apply、编译或启动表现。复现集成问题前应固定内核和 KernelSU 的提交 SHA。
+- 已取得三个 KernelSU 的 kernel/ 源码快照和内核受影响文件集并验证 clean apply；未做本地完整内核编译或设备启动测试。实机验证应保留上述构建引用和实际 Actions 日志。
 
 ## 本次发布链路验证
 

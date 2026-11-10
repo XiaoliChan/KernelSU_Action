@@ -60,8 +60,6 @@
 #define INODE_STATE_SUS_KSTAT BIT(26)
 #define INODE_STATE_OPEN_REDIRECT BIT(27)
 
-#define TIF_NON_ROOT_USER_APP_PROC 33 // thread_info->flags is unsigned long :D
-
 #define AS_FLAGS_ANDROID_DATA_ROOT_DIR 28
 #define AS_FLAGS_SDCARD_ROOT_DIR 29
 #define BIT_ANDROID_DATA_ROOT_DIR BIT(28)
@@ -79,11 +77,13 @@
 #define DATA_ADB_NO_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT "/data/adb/susfs_no_auto_add_try_umount_for_bind_mount"
 
 static inline bool susfs_is_current_non_root_user_app_proc(void) {
-	return test_ti_thread_flag(&current->thread_info, TIF_NON_ROOT_USER_APP_PROC);
+	/* Use the same storage as the dcache hooks and the legacy UID hook.
+	 * thread_info bit 33 belongs exclusively to v2 PROC_UMOUNTED. */
+	return !!(READ_ONCE(current->susfs_task_state) & TASK_STRUCT_NON_ROOT_USER_APP_PROC);
 }
 
 static inline void susfs_set_current_non_root_user_app_proc(void) {
-	set_ti_thread_flag(&current->thread_info, TIF_NON_ROOT_USER_APP_PROC);
+	current->susfs_task_state |= TASK_STRUCT_NON_ROOT_USER_APP_PROC;
 }
 
 
@@ -109,9 +109,8 @@ static inline void susfs_set_current_non_root_user_app_proc(void) {
 #ifndef CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING
 #define CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING 0x60010
 #endif
-#endif // #ifndef KSU_SUSFS_DEF_H
-
 /* v2-compat task state flags (values from susfs v2.x susfs_def.h) */
 #define TIF_PROC_UMOUNTED 33
 #define TIF_PROC_NO_SU 34
 #define TIF_PROC_UMOUNTED_FOR_ZYGOTE_NEXT 35
+#endif // #ifndef KSU_SUSFS_DEF_H

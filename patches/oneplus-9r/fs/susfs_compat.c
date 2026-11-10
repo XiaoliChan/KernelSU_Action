@@ -10,10 +10,9 @@
  *
  * This file provides the missing entry points. Struct layouts differ
  * between the generations, so the forwarding wrappers translate the v2
- * struct (sent by the manager) into the v1.5.5 layout, bounce it back into
- * the caller's user buffer, and hand it to the renamed v1.5.5
- * implementation (susfs_v159_*). All of this runs in the manager's own
- * syscall context, so the copy_to_user bounce is legal.
+ * struct (sent by the manager) into a kernel-local v1.5.9 structure.
+ * Native helpers consume kernel pointers; only the v2 err field is written
+ * back. The user's allocation must never be used as a larger v1 scratchpad.
  *
  * Real implementations: sus_path / sus_kstat / spoof_uname / cmdline /
  * open_redirect forwarding, log toggle, enabled-features / variant /
@@ -84,11 +83,16 @@ static void compat_add_sus_path(void __user **user_info, bool is_loop)
 {
 	struct compat_v2_sus_path v2;
 	struct st_susfs_sus_path v155;
+	int err = -EFAULT;
 
 	if (!user_info || !*user_info)
 		return;
 	if (copy_from_user(&v2, *user_info, sizeof(v2)))
-		return;
+		goto out;
+	if (!memchr(v2.target_pathname, '\0', sizeof(v2.target_pathname))) {
+		err = -EINVAL;
+		goto out;
+	}
 
 	memset(&v155, 0, sizeof(v155));
 	/* v1.5.9 keys by pathname (it resolves and marks the inodes itself);
@@ -98,9 +102,9 @@ static void compat_add_sus_path(void __user **user_info, bool is_loop)
 		sizeof(v155.target_pathname));
 	v155.i_uid = 0;
 
-	if (copy_to_user(*user_info, &v155, sizeof(v155)))
-		return;
-	susfs_v159_add_sus_path((struct st_susfs_sus_path __user *)*user_info);
+	err = susfs_add_sus_path_kernel(&v155);
+out:
+	put_user(err, &((struct compat_v2_sus_path __user *)*user_info)->err);
 }
 
 void susfs_add_sus_path(void __user **user_info)
@@ -144,21 +148,24 @@ static void compat_kstat_common(void __user **user_info, bool update)
 {
 	struct compat_v2_sus_kstat v2;
 	struct st_susfs_sus_kstat v155;
+	int err = -EFAULT;
 
 	if (!user_info || !*user_info)
 		return;
 	if (copy_from_user(&v2, *user_info, sizeof(v2)))
-		return;
+		goto out;
+	if (!memchr(v2.target_pathname, '\0', sizeof(v2.target_pathname))) {
+		err = -EINVAL;
+		goto out;
+	}
 
 	compat_fill_v155_kstat(&v155, &v2);
-	if (copy_to_user(*user_info, &v155, sizeof(v155)))
-		return;
 	if (update)
-		susfs_v159_update_sus_kstat(
-			(struct st_susfs_sus_kstat __user *)*user_info);
+		err = susfs_update_sus_kstat_kernel(&v155);
 	else
-		susfs_v159_add_sus_kstat(
-			(struct st_susfs_sus_kstat __user *)*user_info);
+		err = susfs_add_sus_kstat_kernel(&v155);
+out:
+	put_user(err, &((struct compat_v2_sus_kstat __user *)*user_info)->err);
 }
 
 void susfs_add_sus_kstat(void __user **user_info)
@@ -198,12 +205,17 @@ void susfs_add_open_redirect(void __user **user_info)
 	struct compat_v2_open_redirect v2;
 	struct st_susfs_open_redirect v155;
 	struct path path;
-	int err;
+	int err = -EFAULT;
 
 	if (!user_info || !*user_info)
 		return;
 	if (copy_from_user(&v2, *user_info, sizeof(v2)))
-		return;
+		goto out;
+	if (!memchr(v2.target_pathname, '\0', sizeof(v2.target_pathname)) ||
+	    !memchr(v2.redirected_pathname, '\0', sizeof(v2.redirected_pathname))) {
+		err = -EINVAL;
+		goto out;
+	}
 
 	memset(&v155, 0, sizeof(v155));
 	/* v1.5.5 keys the hash by target_ino; resolve it from the pathname,
@@ -212,7 +224,7 @@ void susfs_add_open_redirect(void __user **user_info)
 	if (err) {
 		pr_warn("susfs_compat: open_redirect target not found: %s\n",
 			v2.target_pathname);
-		return;
+		goto out;
 	}
 	v155.target_ino = path.dentry->d_inode->i_ino;
 	path_put(&path);
@@ -221,10 +233,9 @@ void susfs_add_open_redirect(void __user **user_info)
 	strlcpy(v155.redirected_pathname, v2.redirected_pathname,
 		sizeof(v155.redirected_pathname));
 
-	if (copy_to_user(*user_info, &v155, sizeof(v155)))
-		return;
-	susfs_v159_add_open_redirect(
-		(struct st_susfs_open_redirect __user *)*user_info);
+	err = susfs_add_open_redirect_kernel(&v155);
+out:
+	put_user(err, &((struct compat_v2_open_redirect __user *)*user_info)->err);
 }
 
 /* ------------------------------------------------------------ misc real */

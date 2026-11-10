@@ -1,0 +1,3 @@
+# Unified-diff context lines intentionally begin with a space before a tab,
+# and an empty context line may contain just its diff marker.
+*.patch whitespace=-blank-at-eol,-space-before-tab
