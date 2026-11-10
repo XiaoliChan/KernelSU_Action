@@ -1,5 +1,7 @@
 # OnePlus 9R 补丁审查
 
+维护说明：原版 KernelSU 的 9R workflow 和设备配置已按用户要求移除。下文“三个版本”的审查、构建和发布记录为历史证据；当前保留 SukiSU-Ultra、BakaSU 及阶段性诊断入口。
+
 ## AnyKernel3 发布包更正
 
 首次三份自动 Release 的内核编译成功，但安装脚本仍包含上游 tuna 示例，且槽位变量误写为小写；这说明此前打包测试覆盖不足。三个旧 Release 已删除，不能继续使用已下载的旧 ZIP。

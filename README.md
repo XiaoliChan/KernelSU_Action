@@ -33,7 +33,7 @@
 
 ### OnePlus 9R 自动发布
 
-三个设备入口分别为 `build-oneplus-9r-kernelsu.yml`、`build-oneplus-9r-bakasu.yml`、`build-oneplus-9r-sukisu.yml`。
+一加 9R 的常规设备入口保留 `build-oneplus-9r-bakasu.yml`、`build-oneplus-9r-sukisu.yml`；原版 KernelSU 的 9R 入口和配置已移除。通用构建器对其他设备的原版支持不变。
 手动运行后，默认在构建成功时自动创建 GitHub Release；取消 `publish_release` 即只保留 Artifacts。通用 `Build Kernel` 的发布仍默认关闭，不额外触发 push 或定时构建。
 
 Release 附带 AnyKernel3 刷机 ZIP、可选 boot/DTBO 及 `SHA256SUMS`，不附带裸 `Image`（仍保留在 Actions Artifacts 中用于排错）。Tag 包含设备、分支、时间、run ID 和重跑次数，避免三个分支相互覆盖；这些设备构建不抢占仓库的 Latest 标记。

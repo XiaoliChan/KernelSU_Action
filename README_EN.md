@@ -4,7 +4,7 @@
 
 ## OnePlus 9R automatic releases
 
-The device workflows are `build-oneplus-9r-kernelsu.yml`, `build-oneplus-9r-bakasu.yml`, and `build-oneplus-9r-sukisu.yml`.
+The regular 9R device workflows are `build-oneplus-9r-bakasu.yml` and `build-oneplus-9r-sukisu.yml`. The original-KernelSU 9R entry and profile have been removed; generic original-KernelSU support for other devices remains available.
 Each manual run publishes a GitHub Release after a successful build by default; disable `publish_release` for artifacts only. The generic builder still defaults to no release. No push or scheduled build trigger is added.
 
 Releases include the prebuilt AnyKernel3 ZIP, optional boot/DTBO images, and `SHA256SUMS`. Raw kernel images are kept in Actions Artifacts for debugging, not uploaded to Releases. Tags include device, variant, timestamp, run ID, and attempt to avoid collisions. Device builds do not replace the repository's Latest release.
