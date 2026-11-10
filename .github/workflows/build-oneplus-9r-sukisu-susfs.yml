@@ -103,6 +103,7 @@ jobs:
           cp patches/oneplus-9r/include/linux/static_call.h "$KERNEL_DIR/include/linux/"
           patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/001-4.19-compat.patch
+          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/002-susfs-old-kernel-sids.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/001-preinit-layout.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/002-nonsusfs-werror.patch
           # Keep the proven base hooks; add SUSFS separately with no fuzz.

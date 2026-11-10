@@ -144,6 +144,13 @@ class ControlConfigTests(unittest.TestCase):
         self.assertIn('target_uid = new->uid.val', extra)
         self.assertLess(extra.index('if (retval < 0)'), extra.index('ksu_handle_setresuid(target_uid,'))
         self.assertLess(extra.index('ksu_handle_setresuid(target_uid,'), extra.index('return commit_creds(new)'))
+        sid_fix = (ROOT / 'patches/oneplus-9r/ksu_fixes/sukisu-ultra/002-susfs-old-kernel-sids.patch').read_text()
+        self.assertIn('out_flush:', sid_fix)
+        self.assertIn('reset_avc_cache();', sid_fix)
+        self.assertIn('+#ifdef CONFIG_KSU_SUSFS', sid_fix)
+        self.assertIn('+    susfs_set_batch_sid();', sid_fix)
+        self.assertLess(sid_fix.index('reset_avc_cache();'), sid_fix.index('+    susfs_set_batch_sid();'))
+        self.assertIn('002-susfs-old-kernel-sids.patch', commands)
 
     def test_control_has_no_release_or_root_installation(self):
         workflow = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-control.yml').read_text())

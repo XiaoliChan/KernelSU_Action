@@ -1,0 +1,14 @@
+--- a/kernel/selinux/rules.c
++++ b/kernel/selinux/rules.c
+@@ -256,6 +256,11 @@
+ out_flush:
+     smp_mb();
+     reset_avc_cache();
++#ifdef CONFIG_KSU_SUSFS
++    /* The >=5.10 path already initializes these. Without this on 4.19,
++     * zygote/manager UID hooks and KSU mount classification compare to SID 0. */
++    susfs_set_batch_sid();
++#endif
+ #endif
+ }
+ 
