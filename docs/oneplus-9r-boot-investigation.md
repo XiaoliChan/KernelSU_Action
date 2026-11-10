@@ -2,7 +2,7 @@
 
 ## 已确认事实
 
-用户报告 SukiSU-Ultra 内核刷入后停在一加 Logo，恢复已备份的 `boot_a` 后可以正常开机。Recovery 可以启动，但 pstore 为空，`/proc/last_kmsg` 不存在。当前没有失败内核的 panic 栈，不能断言某个具体补丁就是根因。
+用户报告 SukiSU-Ultra 内核刷入后停在一加 Logo，恢复已备份的 `boot_a` 后可以正常开机。Recovery 可以启动，但 pstore 为空，`/proc/last_kmsg` 不存在。最初没有 panic 栈，不能仅凭源码猜测根因；后续已在用户原始失败镜像的机器码中确认挂载路径的确定缺陷，见下文。
 
 已对用户实际刷入的 ZIP、可开机备份和失败 boot 进行离线检查，原始文件未修改：
 
@@ -90,3 +90,22 @@
 - 修正 `strlen` 的 printk 格式为 `%zu`，检查兼容层的 usercopy 返回值，保留 `CONFIG_CC_WERROR=y`。
 - 用户态 `ksud susfs` 自带 status/version/variant/features 查询，可先直接验证内核接口，无需为了显示支持而安装额外模块。
 - `tests/susfs_device_probe.c` 是可选的 arm64 用户态实机探针，不是内核/KPM 模块。先查询 version/variant/features，查询失败时不做任何修改；查询成功后短暂改变 uname 的 release，立即恢复原 release/version，并对真实 syscall 结果做比较。它不写持久配置，不改分区/授权/SELinux。已在无 SUSFS 的 ADB-root + KPM 基线上确认查询失败、未尝试修改。正向实机结果仍待 SUSFS 候选启动。
+
+### 原失败镜像中的挂载失败路径已确认
+
+SUSFS 构建 `42866305499` 的严格编译在 `fs/namespace.c:1059` 拒绝了 `#endif\tif (!mnt)`：补丁缺少换行，预处理器把 `if (!mnt)` 当成指令尾部多余 token 丢弃，原本仅供分配失败执行的 `return ERR_PTR(-ENOMEM)` 变成无条件返回。这不是关闭 WERROR 可以解决的问题。
+
+进一步检查用户原始 `boot_a-failed.img` 中提取的内核（SHA256 `c2ea49338b7ee868d9a93c9e54cc1145fbc7ce2450a35b8b6884b910d48a69f1`），使用固定 KernelPatch 的 kallsyms 解码和 ARM objdump 得到实际机器码：
+
+```text
+vfs_create_mount: 0x0049f7a8 .. 0x0049f807
+0x0049f7e8  bl   0x0049f808             # alloc_vfsmnt
+0x0049f7f0  mov  x0, #0xfffffffffffffff4 # ERR_PTR(-ENOMEM), -12
+0x0049f7fc  ret
+0x0049f800  mov  x0, #0xffffffffffffffea # root=NULL 时 -EINVAL
+0x0049f804  ret
+```
+
+函数不存在成功返回路径，分配结果被忽略；该缺陷已进入用户刷入的二进制，足以阻止正常挂载/启动，不只是源码推测。尚不能据此排除同时存在其他故障。
+
+提交 `1caa24d` 恢复独立的条件语句，增加真实补丁片段的 C 回归测试：SUSFS 开/关 × KSU/普通域 × 分配成功/失败，同时检查所有补丁新增 `#endif/#else` 行不吞掉 C 语句。43 项测试通过。新构建 `42870965525` 仍需实机验证，原失败镜像保留不动。
