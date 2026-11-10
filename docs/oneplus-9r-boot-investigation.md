@@ -121,3 +121,26 @@ vfs_create_mount: 0x0049f7a8 .. 0x0049f807
 提交 `624bc60` 在旧内核策略更新完成、锁已释放的 `out_flush` 路径补上 SUSFS SID 初始化。未修改管理器签名检查、包名、授权列表或 SELinux enforcing 状态。构建 `42876653991` 用于验证修复，必须重新检查管理器 Working、ADB-root、KPM、SUSFS 和实际挂载路径，不能只复查 root CLI。
 
 另：锁屏截图一度全黑，日志证明是设备面朝下触发约两秒自动息屏，不是 UI 崩溃。短暂开启 USB 保持唤醒以验证 UI 后已恢复原设置；未持久化用户解锁信息。
+
+### 三项组合与官方管理器最终验证通过
+
+构建 [42876653991](https://github.com/XiaoliChan/KernelSU_Action/actions/runs/42876653991)（源码提交 `624bc60`）通过临时启动与管理器验证：
+
+| 检查 | 实测结果 |
+| --- | --- |
+| 启动身份 | `boot_completed=1`，完整 `/proc/version` 为 `Tue Nov 10 18:44:01 UTC 2026` |
+| ADB-root | `enabled`，shell `uid=0`，SELinux 域 `u:r:ksu:s0` |
+| KPM | available、ABI 2、loader `3584 / 0x0e00`；模块数 0，未加载任何 KPM 模块 |
+| SUSFS | `true`、`v1.5.9-v2compat`、`NON-GKI`；uname 实际改变并立即恢复，重复测试通过 |
+| 官方管理器 | **Working**，版本 `41168-6`；首页同时显示 KPM 0、SUSFS Inline Hook |
+| 管理器连接 | UID 仍为 10118、`Seccomp: 0`、FD 指向 `anon_inode:[ksu_driver]`；日志确认 install fd for manager |
+| SID 修复 | zygote、zygote_next、ksu、init、priv_app 的 SUSFS SID 初始化日志均存在 |
+| 永久分区 | `boot_a` SHA256 仍为已验证的 ADB-root 镜像，没有永久刷入组合候选 |
+
+```text
+组合 Image SHA256: 03d596700f5f17ac6a8136f4f7f141d8af06c30177517b26710818082ec63293
+临时 boot SHA256:  3527d5df361ebdc31535df986d107103cc80164d662039d5a7cea3d5e227fc56
+永久 boot_a SHA256:b360977005f539a596d561dabeb212ac35aec5f590db07b51dd817d53da7a6dd
+```
+
+这是**同一个**内核中的 ADB-root + KPM + SUSFS，不是分散的互斥镜像。仍需区分能力验证与完整覆盖：KPM 按授权只测 probe/version/模块数；SUSFS 版本为 4.19 原生实现的 v2 兼容层，并非全部上游 v2 功能。未改应用授权、未安装新模块、未更改全局 SELinux enforcing；临时显示设置已恢复。组合产物只在 Actions Artifacts 中，未自动新增 Release。

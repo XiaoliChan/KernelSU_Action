@@ -35,6 +35,8 @@
 
 **当前实机验证路线**：LineageOS `24.0-20261107` 上 minimal、ADB-root 均已正常启动，ADB-root 已永久刷入并回读校验。`build-oneplus-9r-sukisu-kpm.yml` 在相同编译器、原厂配置和 ADB-root 基线上只追加 `CONFIG_KPM=y`，固定 ABI v2 KernelPatch 源码构建真实 payload；不加入 SUSFS、不加载 KPM 模块、不自动发布未经验证的候选。诊断流程使用 `fastboot boot`，不是直接刷写；下面的旧常规发布入口不能代替该验证路线。
 
+**最新组合结果**：`build-oneplus-9r-sukisu-susfs.yml` 的 [42876653991](https://github.com/XiaoliChan/KernelSU_Action/actions/runs/42876653991) 已实机临时启动验证 **ADB-root + KPM + SUSFS 同时存在，官方管理器 Working**，并通过 SUSFS 可逆 uname 测试。尚未永久刷入或发布新 Release；当前 Release 仍仅保留已验证 minimal。SUSFS 是 `v1.5.9-v2compat`，不代表所有 v2 功能可用。完整证据与限制见[启动故障定位](docs/oneplus-9r-boot-investigation.md)。
+
 一加 9R 的常规设备入口保留 `build-oneplus-9r-bakasu.yml`、`build-oneplus-9r-sukisu.yml`；原版 KernelSU 的 9R 入口和配置已移除。通用构建器对其他设备的原版支持不变。
 手动运行后，默认在构建成功时自动创建 GitHub Release；取消 `publish_release` 即只保留 Artifacts。通用 `Build Kernel` 的发布仍默认关闭，不额外触发 push 或定时构建。
 
