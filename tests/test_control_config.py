@@ -35,6 +35,13 @@ class ControlConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 compare.values(path)
 
+    def test_compiler_build_number_is_not_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp) / 'a', Path(tmp) / 'b'
+            a.write_text('CONFIG_CC_VERSION_TEXT="Android (15071444) clang version 22.0.2"\n')
+            b.write_text('CONFIG_CC_VERSION_TEXT="Android (15682573) clang version 22.0.2"\n')
+            self.assertIn('CONFIG_CC_VERSION_TEXT', compare.compare(a, b))
+
     def test_control_has_no_release_or_root_installation(self):
         workflow = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-control.yml').read_text())
         self.assertEqual(workflow['permissions'], {'contents': 'read'})
@@ -49,6 +56,9 @@ class ControlConfigTests(unittest.TestCase):
         self.assertEqual(reference['CONFIG_RELR'], 'y')
         self.assertEqual(reference['CONFIG_LOCALVERSION'], '"-perf"')
         self.assertEqual(reference.get('CONFIG_KSU', 'n'), 'n')
+        profile = (ROOT / 'config/oneplus-9r-lineage-control.env').read_text()
+        self.assertIn('USE_CUSTOM_CLANG=true', profile)
+        self.assertIn('/+archive/9b144befdfd93b90e02c663504fb9f4b95f9faf8/', profile)
 
 
 if __name__ == '__main__':

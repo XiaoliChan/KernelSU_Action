@@ -32,7 +32,7 @@
 新增 `Build OnePlus 9R (Stock control)` 手动工作流，专用于建立可复现的构建基线：
 
 1. 固定内核源码到 `078365e5318de0a30a41f9707070b610bcd20f13`。
-2. 使用可开机内核的原始配置快照和 Clang r596125，全 LLVM 工具链。
+2. 使用可开机内核的原始配置快照和 Clang r596125，全 LLVM 工具链。工具链固定到 AOSP 预编译提交 `9b144befdfd93b90e02c663504fb9f4b95f9faf8`，对应原机 Android build `15071444`；不使用已被覆盖为 build `15682573` 的移动分支目录。
 3. 不安装 KernelSU，不应用任何 SUSFS、manual-hook、path_umount 或 hide_stuff 补丁。
 4. 生成配置后逐项比对；有差异就停止，不把偏离的配置当作有效对照组。
 5. 只上传诊断 Artifacts，权限仅 `contents: read`；没有 Release 发布入口。
