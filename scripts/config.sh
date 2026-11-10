@@ -78,6 +78,7 @@ declare -A DEFAULTS=(
 	[CUSTOM_ANYKERNEL3_SOURCE]=""
 	[CUSTOM_ANYKERNEL3_BRANCH]=""
 	[ANYKERNEL3_DEVICE]=""
+	[ANYKERNEL3_DEVICE_ALIAS]=""
 	[ANYKERNEL3_SLOT_DEVICE]="auto"
 	[NEED_DTBO]="false"
 	[BUILD_BOOT_IMG]="false"
@@ -186,6 +187,10 @@ validate() {
 	local errors=0
 	_err() { warn "config: $*"; errors=$((errors + 1)); }
 	[[ "${CFG[ANYKERNEL3_DEVICE]}" =~ ^[a-zA-Z0-9_-]*$ ]] || _err "invalid ANYKERNEL3_DEVICE"
+	[[ "${CFG[ANYKERNEL3_DEVICE_ALIAS]}" =~ ^[a-zA-Z0-9_-]*$ ]] || _err "invalid ANYKERNEL3_DEVICE_ALIAS"
+	if [ -n "${CFG[ANYKERNEL3_DEVICE_ALIAS]}" ] && [ -z "${CFG[ANYKERNEL3_DEVICE]}" ]; then
+		_err "ANYKERNEL3_DEVICE_ALIAS requires ANYKERNEL3_DEVICE"
+	fi
 	case "${CFG[ANYKERNEL3_SLOT_DEVICE]}" in
 		auto | 0 | 1) ;;
 		*) _err "ANYKERNEL3_SLOT_DEVICE must be auto, 0 or 1" ;;

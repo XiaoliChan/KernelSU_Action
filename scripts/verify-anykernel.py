@@ -7,9 +7,10 @@ import stat
 import zipfile
 
 
-def verify(archive, device, slot, image_name, image):
+def verify(archive, device, slot, image_name, image, device_alias=''):
     template = (Path(__file__).resolve().parents[1] / 'packaging/anykernel.sh').read_text()
     expected = template.replace('IS_SLOT_DEVICE=auto;', f'IS_SLOT_DEVICE={slot};')
+    expected = expected.replace('device.name2=\n', f'device.name2={device_alias}\n')
     if device:
         expected = expected.replace('do.devicecheck=0', 'do.devicecheck=1')
         expected = expected.replace('device.name1=\n', f'device.name1={device}\n')
@@ -38,8 +39,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('archive')
     parser.add_argument('--device', default='')
+    parser.add_argument('--device-alias', default='')
     parser.add_argument('--slot', choices=['auto', '0', '1'], default='auto')
     parser.add_argument('--image-name', required=True)
     parser.add_argument('--image', required=True)
     args = parser.parse_args()
-    verify(args.archive, args.device, args.slot, args.image_name, args.image)
+    verify(args.archive, args.device, args.slot, args.image_name, args.image, args.device_alias)

@@ -198,6 +198,10 @@ jobs:
         if: env.ANYKERNEL3_SLOT_DEVICE == '1' && env.USE_CUSTOM_ANYKERNEL3 == 'false'
         run: python3 tests/check_anykernel_slots.py "$ANYKERNEL3_ZIP"
 
+      - name: Verify OnePlus 9R device aliases
+        if: env.ANYKERNEL3_DEVICE == 'lemonades' && env.USE_CUSTOM_ANYKERNEL3 == 'false'
+        run: python3 tests/check_anykernel_devices.py "$ANYKERNEL3_ZIP"
+
       - name: Export build metadata
         id: meta
         run: |

@@ -16,7 +16,10 @@ AK3_COMMIT=41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
 
 configure_anykernel3() {
 	local device=${ANYKERNEL3_DEVICE:-} slot=${ANYKERNEL3_SLOT_DEVICE:-auto}
+	local alias=${ANYKERNEL3_DEVICE_ALIAS:-}
 	[[ "$device" =~ ^[a-zA-Z0-9_-]*$ ]] || die "invalid ANYKERNEL3_DEVICE"
+	[[ "$alias" =~ ^[a-zA-Z0-9_-]*$ ]] || die "invalid ANYKERNEL3_DEVICE_ALIAS"
+	if [ -n "$alias" ] && [ -z "$device" ]; then die "device alias requires ANYKERNEL3_DEVICE"; fi
 	case "$slot" in auto | 0 | 1) ;; *) die "invalid ANYKERNEL3_SLOT_DEVICE" ;; esac
 	cp "${PACKAGE_REPO_ROOT}/packaging/anykernel.sh" "${AK3}/anykernel.sh"
 	# Never ship upstream's example payloads (init.tuna, fstab, ramdisk files).
@@ -25,6 +28,7 @@ configure_anykernel3() {
 	if [ -n "$device" ]; then
 		sed -i "s/^do.devicecheck=0$/do.devicecheck=1/; s/^device.name1=$/device.name1=${device}/" "${AK3}/anykernel.sh"
 	fi
+	sed -i "s/^device.name2=$/device.name2=${alias}/" "${AK3}/anykernel.sh"
 }
 
 make_anykernel3() {
@@ -74,6 +78,7 @@ make_anykernel3() {
 	if ! is_true "${USE_CUSTOM_ANYKERNEL3:-false}"; then
 		python3 "${PACKAGE_REPO_ROOT}/scripts/verify-anykernel.py" "$archive" \
 			--device "${ANYKERNEL3_DEVICE:-}" --slot "${ANYKERNEL3_SLOT_DEVICE:-auto}" \
+			--device-alias "${ANYKERNEL3_DEVICE_ALIAS:-}" \
 			--image-name "$KERNEL_IMAGE_NAME" --image "${BOOT_OUT}/${KERNEL_IMAGE_NAME}" \
 			|| die "AnyKernel3 installer audit failed"
 	fi

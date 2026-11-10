@@ -17,7 +17,8 @@ class AnyKernelTests(unittest.TestCase):
         self.ak3.mkdir()
         self.env = {**os.environ, 'WORKSPACE': str(self.workspace),
                     'KERNEL_DIR': str(self.workspace / 'kernel'),
-                    'ANYKERNEL3_DEVICE': 'lemonades', 'ANYKERNEL3_SLOT_DEVICE': '1'}
+                    'ANYKERNEL3_DEVICE': 'lemonades', 'ANYKERNEL3_DEVICE_ALIAS': 'OnePlus9R',
+                    'ANYKERNEL3_SLOT_DEVICE': '1'}
 
     def configure(self):
         return subprocess.run(['bash', '-c', '. "$1"; configure_anykernel3',
@@ -36,6 +37,7 @@ class AnyKernelTests(unittest.TestCase):
         self.assertIn('BLOCK=boot;', script)
         self.assertIn('SLOT_SELECT=active;', script)
         self.assertIn('device.name1=lemonades', script)
+        self.assertIn('device.name2=OnePlus9R', script)
         self.assertIn('do.devicecheck=1', script)
         self.assertNotIn('is_slot_device=', script)
         for name in ('init.tuna', 'fstab.tuna', 'dump_boot;', 'write_boot;', 'append_file'):
@@ -59,7 +61,7 @@ flash_generic() { echo "optional:$1"; }
         self.assertEqual(result.stdout.splitlines(), ['split', 'flash', 'optional:dtbo'])
 
     def test_generic_policy_still_supported(self):
-        self.env.update(ANYKERNEL3_DEVICE='', ANYKERNEL3_SLOT_DEVICE='auto')
+        self.env.update(ANYKERNEL3_DEVICE='', ANYKERNEL3_DEVICE_ALIAS='', ANYKERNEL3_SLOT_DEVICE='auto')
         self.assertEqual(self.configure().returncode, 0)
         script = (self.ak3 / 'anykernel.sh').read_text()
         self.assertIn('IS_SLOT_DEVICE=auto;', script)
@@ -75,7 +77,14 @@ flash_generic() { echo "optional:$1"; }
         for path in (ROOT / 'config').glob('oneplus-9r-*.env'):
             config = path.read_text()
             self.assertIn('ANYKERNEL3_DEVICE=lemonades', config)
+            self.assertIn('ANYKERNEL3_DEVICE_ALIAS=OnePlus9R', config)
             self.assertIn('ANYKERNEL3_SLOT_DEVICE=1', config)
+
+    def test_alias_needs_primary_device_and_valid_characters(self):
+        self.env['ANYKERNEL3_DEVICE'] = ''
+        self.assertNotEqual(self.configure().returncode, 0)
+        self.env.update(ANYKERNEL3_DEVICE='lemonades', ANYKERNEL3_DEVICE_ALIAS='OnePlus9R;exit')
+        self.assertNotEqual(self.configure().returncode, 0)
 
 
 if __name__ == '__main__':
