@@ -2,6 +2,15 @@
 
 # KernelSU Action
 
+## OnePlus 9R automatic releases
+
+The device workflows are `build-oneplus-9r-kernelsu.yml`, `build-oneplus-9r-bakasu.yml`, and `build-oneplus-9r-sukisu.yml`.
+Each manual run publishes a GitHub Release after a successful build by default; disable `publish_release` for artifacts only. The generic builder still defaults to no release. No push or scheduled build trigger is added.
+
+Releases include the prebuilt AnyKernel3 ZIP, kernel image, optional boot/DTBO images, and `SHA256SUMS`. Tags include device, variant, timestamp, run ID, and attempt to avoid collisions. Device builds do not replace the repository's Latest release.
+Use the AnyKernel3 ZIP directly from Releases. When downloading through Actions Artifacts, extract the outer artifact ZIP first and flash the inner AnyKernel3 ZIP, **not the outer archive**.
+See the [OnePlus 9R patch review (Chinese)](docs/oneplus-9r-review.md) for known issues; automatic publication does not imply device validation.
+
 A GitHub Actions workflow that integrates KernelSU (and its forks), SUSFS and the common kernel patches into an Android kernel, and produces a flashable AnyKernel3 package.
 
 Assumes some familiarity with Android kernels.

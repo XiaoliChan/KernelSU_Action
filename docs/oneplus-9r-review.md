@@ -1,0 +1,89 @@
+# OnePlus 9R 补丁审查
+
+审查基线：`9057d14`。范围为 `patches/oneplus-9r/` 以及三个设备配置的接入链路。
+结论：发现 5 项应修复的问题；当前补丁不能仅凭链接成功认定兼容层正确。
+本次只修改工作流与打包发布，以下内核问题均未修改。验证为静态调用链检查与本地最小探针，不代表完整内核编译或设备复现。
+
+## P1 v2 路径请求回写超过调用方结构大小
+
+位置：`patches/oneplus-9r/fs/susfs_compat.c:83-103`，结构定义在同文件 `:42-45` 与 `include/linux/susfs.h:29-33`。
+
+`compat_add_sus_path()` 先读取 v2 请求，再把整个 v1.5.9 结构写回同一个用户地址。
+按代码声明的 LP64 布局，v2 请求为 260 字节，而 v1.5.9 请求为 272 字节，回写越界 12 字节。
+若相邻用户内存可写，`copy_to_user()` 不会知道原对象只有 260 字节，会覆盖后续对象；若跨入不可写页，则部分回写后失败。
+它还破坏原请求布局，且没有把底层返回值写回 v2 `err`。
+
+建议：把 v1 实现拆成接收内核结构的内部函数；分别由 v1/v2 用户入口拷贝和转换，不能借用调用方缓冲区作为结构转换工作区。kstat 和 open_redirect 包装也应一起移除这种回写再读取的设计，并正确回传错误。
+
+本地从原文件提取两个结构，以 `cc` 编译 `sizeof` 探针，输出：
+
+```text
+v2=260 v159=272 overwrite=12
+```
+
+此测量采用宿主 LP64 布局，与这两个结构在目标 arm64 下的基本类型大小及对齐相符；没有执行目标内核中的 `copy_to_user`。
+
+## P1 非 root 应用与已卸载挂载共用同一状态位
+
+位置：`patches/oneplus-9r/include/linux/susfs_def.h:63,81-86,115`；`fs/susfs_compat.c:297-330`。
+
+`TIF_NON_ROOT_USER_APP_PROC` 与 `TIF_PROC_UMOUNTED` 均为 33，且均读写 `thread_info.flags`。
+调用 `susfs_set_current_proc_umounted()` 会同时使 `susfs_is_current_non_root_user_app_proc()` 返回真，反向也成立，两个本应独立的状态无法区分。
+另有 dcache 补丁和 faccessat hook 使用 `current->susfs_task_state` 的 bit 24，与上述 thread flag 并非同一存储；不能假定设置其中一个就会启用所有隐藏路径。
+
+建议：统一进程状态来源，为独立语义分配互不重叠的位，并核查 fork、UID 变更及清除路径。至少测试仅设置任一状态时，另一状态仍为假。
+
+## P1 faccessat 和 stat 丢弃 hook 修改后的路径
+
+位置：两份 `kernel_hooks/kernel-4.19*.patch:60-71,105-112,123-130`。
+
+新增代码执行 `getname(filename)`，将独立的 `struct filename *ksu_name` 交给 hook 修改，然后直接 `putname(ksu_name)`。
+后续 `do_faccessat()` / `vfs_fstatat()` 仍使用原始用户指针 `filename`，没有消费修改后的内核路径。
+因此，只要所选分支通过该参数做 su 路径重定向，重定向就不会传给真正的文件检查；fd、mode、flag 的修改不弥补路径丢失。
+
+建议：在真正接收 `struct filename` 的 VFS 路径接入 hook，保留正确的所有权和 `putname` 时机。用会把不存在路径改成有效路径的桩 hook 验证下游实际消费的参数；随后再对所固定的 KernelSU 提交做集成验证。
+
+## P2 32 位 exec hook 位于 return 之后
+
+位置：两份 `kernel_hooks/kernel-4.19*.patch:36-44`。
+
+`compat_do_execve()` 中先 `return do_execveat_common(...)`，后面才插入 `ksu_handle_execveat()`。
+该新增调用不可达，32 位 compat exec 路径不会执行它。两份补丁的文本探针均确认这个顺序。
+
+建议：把 hook 放到调用 `do_execveat_common` 前，并使用真实的局部 fd/flags 变量传址。
+同文件 64 位 hook 的 `(int *)AT_FDCWD` 也不是有效的 `int *`，是否触发故障取决于上游 handler 是否解引用，需对固定分支进一步核对，不能只改不可达代码就认为完成。
+
+## P1 持有自旋锁时进行可能睡眠的路径解析与分配
+
+位置：`patches/oneplus-9r/fs/susfs.c:638-645`；被调用的 `susfs_update_sus_kstat_inode()` 从 `:504` 开始。
+
+更新已有 kstat 项目时，代码持有 `susfs_spin_lock` 调用内部含 `kern_path()` 的辅助函数，并进行 `kmalloc(..., GFP_KERNEL)`。
+路径解析和该分配允许睡眠，与自旋锁临界区不兼容；内存压力或路径查找阻塞时可能导致 atomic-context 调度告警或挂死。该路径由 v1 入口及 v2 转发共同使用。
+
+建议：锁外解析路径和分配，锁内只做短暂的查找、校验及替换；同时处理无锁哈希读者的对象生命周期，不应仅把 GFP_KERNEL 改成 GFP_ATOMIC。用 lockdep / DEBUG_ATOMIC_SLEEP 的目标构建验证。
+
+## 仍需设备或固定上游提交验证的风险
+
+- `fs/susfs_compat.c:352-371` 用单个全局 UID 和 pending 位近似多请求队列，连续请求会覆盖。workqueue 回调也未保存调用进程的挂载命名空间；仅传 UID 不等于切换 namespace。需要对实际分支的卸载函数和调度点核对。
+- sus_map、sdcard monitor、AVC spoofing、priority UID filter 等仍为空实现。Kconfig 存在或 manager 调用不报错，不代表功能有效。
+- 本次未下载完整内核和三个上游源码快照，未验证补丁在当前移动分支上的 clean apply、编译或启动表现。复现集成问题前应固定内核和 KernelSU 的提交 SHA。
+
+## 本次发布链路验证
+
+- 三个设备工作流默认发布，可显式关闭；未新增 push 或定时构建触发器。
+- Release tag 区分设备、KernelSU 分支、构建时间、run ID、attempt，绑定触发构建的仓库提交。
+- AnyKernel3 在构建端先打 ZIP，发布阶段直接复制；增加 ZIP 完整性检查、必需产物检查和 SHA256SUMS。
+- 上传目录不保留原权限，依据 [upload-artifact 官方说明](https://github.com/actions/upload-artifact#permission-loss) 改为预先归档。
+- 本地验证：8 项发布测试、6 份配置解析、Shell 语法、actionlint 与 `git diff --check` 通过；未实际创建远端 Release。
+
+回归命令：
+
+```bash
+python3 -m unittest discover -s tests -v
+for f in scripts/*.sh patches/*.sh; do bash -n "$f" || exit; done
+for f in config.env config/*.env; do CONFIG_ENV="$f" bash scripts/config.sh >/dev/null || exit; done
+actionlint
+git diff --check
+```
+
+测试依赖 Python 3、PyYAML、git、zip、unzip；本次本地 actionlint 使用 `-shellcheck=`，ShellCheck 未安装，未宣称通过该检查。

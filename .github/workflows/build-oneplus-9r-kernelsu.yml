@@ -6,14 +6,13 @@ on:
       publish_release:
         description: "Publish the build as a GitHub Release"
         required: false
-        default: false
+        default: true
         type: boolean
 
 jobs:
   build:
     # Thin per-device wrapper around the reusable builder in build-kernel.yml.
-    # Everything that defines the build (kernel source, toolchain, SukiSU
-    # builtin + SUSFS, oplus.config fragment) lives in the config profile.
+    # KernelSU v0.9.5 + SUSFS and the oplus.config fragment live in the profile.
     uses: ./.github/workflows/build-kernel.yml
     permissions:
       # Only needed so the optional publish_release path can create a release;

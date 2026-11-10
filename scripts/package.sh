@@ -48,7 +48,16 @@ make_anykernel3() {
 	fi
 	rm -rf "${AK3}/.git" "${AK3}/.github" "${AK3}/README.md"
 
-	ok "AnyKernel3 package assembled"
+	# Archive before upload-artifact: uploading a directory loses executable
+	# modes on download. The inner zip preserves recovery tools and symlinks.
+	[ -f "${AK3}/anykernel.sh" ] && [ -f "${AK3}/META-INF/com/google/android/update-binary" ] \
+		|| die "AnyKernel3 is missing its flashing entry points"
+	local archive="${WORKSPACE}/AnyKernel3${LOCALVERSION:-}${UPLOADNAME:-}-${DEVICE:-kernel}-${BUILD_TIME:-local}.zip"
+	rm -f "$archive"
+	( cd "$AK3" && zip -qry9 "$archive" . ) || die "failed to archive AnyKernel3"
+	unzip -tq "$archive" >/dev/null || die "AnyKernel3 zip integrity check failed"
+	export_env ANYKERNEL3_ZIP "$archive"
+	ok "AnyKernel3 flashable zip: ${archive}"
 	endgroup
 }
 

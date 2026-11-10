@@ -108,6 +108,8 @@ jobs:
       ksu_version: ${{ steps.meta.outputs.ksu_version }}
       kernel_release: ${{ steps.meta.outputs.kernel_release }}
       susfs_version: ${{ steps.meta.outputs.susfs_version }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      image_name: ${{ steps.meta.outputs.image_name }}
     env:
       WORKSPACE: ${{ github.workspace }}/kernel_workspace
       CONFIG_ENV: ${{ inputs.config }}
@@ -202,6 +204,10 @@ jobs:
             echo "ksu_version=${KSU_VERSION_LABEL:-}"
             echo "kernel_release=${KERNEL_RELEASE:-}"
             echo "susfs_version=${SUSFS_VERSION:-}"
+            echo "image_name=${KERNEL_IMAGE_NAME}"
+            # Include variant + run identity: the three 9R workflows can finish
+            # in the same minute; reruns must not overwrite previous assets.
+            echo "release_tag=${DEVICE}-${KSU_VARIANT}-${BUILD_TIME}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload kernel image
@@ -215,7 +221,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AnyKernel3${{ env.LOCALVERSION }}${{ env.UPLOADNAME }}-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-          path: kernel_workspace/AnyKernel3/*
+          path: ${{ env.ANYKERNEL3_ZIP }}
           if-no-files-found: error
 
       - name: Upload DTBO image
@@ -237,7 +243,7 @@ jobs:
   release:
     name: Publish release
     needs: build
-    if: inputs.publish_release
+    if: ${{ needs.build.result == 'success' && inputs.publish_release }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -248,24 +254,35 @@ jobs:
           path: artifacts
           merge-multiple: false
 
-      - name: Package AnyKernel3 as a flashable zip
+      - name: Prepare release assets and checksums
+        env:
+          KERNEL_IMAGE_NAME: ${{ needs.build.outputs.image_name }}
         run: |
+          set -euo pipefail
           mkdir -p release
           shopt -s nullglob
+          zip_count=0
           for dir in artifacts/AnyKernel3*/; do
-            name=$(basename "${dir%/}")
-            (cd "$dir" && zip -qr9 "${GITHUB_WORKSPACE}/release/${name}.zip" .)
-            echo "packed ${name}.zip"
+            for archive in "$dir"*.zip; do
+              unzip -tq "$archive"
+              cp "$archive" release/
+              zip_count=$((zip_count + 1))
+            done
           done
-          for f in artifacts/*/Image* artifacts/*/boot.img artifacts/*/dtbo.img; do
-            [ -f "$f" ] && cp "$f" release/
+          [ "$zip_count" -eq 1 ] || { echo 'Expected exactly one AnyKernel3 zip'; exit 1; }
+          for f in artifacts/*/"$KERNEL_IMAGE_NAME" artifacts/*/boot.img artifacts/*/dtbo.img; do
+            [ -s "$f" ] || { echo "Empty asset: $f"; exit 1; }
+            cp "$f" release/
           done
+          [ -s "release/$KERNEL_IMAGE_NAME" ] || { echo 'Kernel image missing'; exit 1; }
+          (cd release && sha256sum -- * > SHA256SUMS)
           ls -la release/
 
       - name: Create release
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
         with:
-          tag_name: ${{ needs.build.outputs.device }}-${{ needs.build.outputs.build_time }}
+          tag_name: ${{ needs.build.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
           name: ${{ needs.build.outputs.device }} · ${{ needs.build.outputs.ksu_name }} · ${{ needs.build.outputs.build_time }}
           body: |
             | | |
@@ -274,6 +291,13 @@ jobs:
             | Kernel | `${{ needs.build.outputs.kernel_release }}` |
             | KernelSU | `${{ needs.build.outputs.ksu_name }}` @ `${{ needs.build.outputs.ksu_version }}` |
             | SUSFS | `${{ needs.build.outputs.susfs_version || 'not applied' }}` |
+            | Profile | `${{ inputs.config }}` |
+            | Source commit | `${{ github.sha }}` |
+
+            Build log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             Flash the AnyKernel3 zip from a custom recovery.
+            SHA256SUMS contains the checksums for all attached build artifacts.
           files: release/*
+          fail_on_unmatched_files: true
+          make_latest: "false"

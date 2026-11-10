@@ -6,7 +6,7 @@ on:
       publish_release:
         description: "Publish the build as a GitHub Release"
         required: false
-        default: false
+        default: true
         type: boolean
 
 jobs:
