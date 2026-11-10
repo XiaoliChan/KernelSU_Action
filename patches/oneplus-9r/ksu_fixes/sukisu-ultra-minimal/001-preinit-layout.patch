@@ -1,0 +1,18 @@
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -24,6 +24,7 @@
+ # ===== preinit runner =====
+ KSU_UAPI_INC := $(objtree)/usr/include
+ ifneq ($(wildcard $(KSU_UAPI_INC)/linux/unistd.h),)
++ifeq ($(CONFIG_KSU_SUSFS),y)
+ ksu-y += preinit/preinit.o preinit/blob.o
+ 
+ KSU_RUNNER_CFLAGS := $(CLANG_FLAGS) -std=gnu11 -Os -Wall \
+@@ -49,6 +50,7 @@
+ 
+ $(obj)/preinit/blob.o: $(obj)/preinit/runner.elf
+ asflags-y += -DKSU_PREINIT_RUNNER_BIN=\"$(abspath $(obj)/preinit/runner.elf)\"
++endif # CONFIG_KSU_SUSFS; non-SUSFS preinit is included by ksu_main.c
+ 
+ else
+ $(warning -- KernelSU: $(KSU_UAPI_INC) not found, preinit disabled)

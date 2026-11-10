@@ -1,0 +1,144 @@
+name: Build OnePlus 9R (SukiSU minimal)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oneplus-9r-sukisu-minimal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  minimal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      WORKSPACE: ${{ github.workspace }}/kernel_workspace
+      CONFIG_ENV: config/oneplus-9r-lineage-sukisu-minimal.env
+      REFERENCE_KERNEL_COMMIT: 078365e5318de0a30a41f9707070b610bcd20f13
+      REFERENCE_CONFIG: ${{ github.workspace }}/config/reference/oneplus-9r-lineage-24.config
+      EXPECTED_OVERRIDES: ${{ github.workspace }}/config/reference/oneplus-9r-sukisu-minimal-overrides.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve diagnostic profile
+        run: bash scripts/config.sh
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: true
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - name: Prepare runner
+        run: |
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential cpio curl device-tree-compiler flex git \
+            libelf-dev libssl-dev lz4 make python3 rsync unzip zip zstd libncurses-dev
+          mkdir -p "$WORKSPACE/diagnostics"
+
+      - name: Fetch reference compiler
+        run: bash scripts/toolchain.sh
+
+      - name: Fetch kernel source
+        run: bash scripts/source.sh
+
+      - name: Pin source and install working-device configuration
+        run: |
+          git -C "$KERNEL_DIR" fetch -q --depth=1 origin "$REFERENCE_KERNEL_COMMIT"
+          git -C "$KERNEL_DIR" checkout -q --detach "$REFERENCE_KERNEL_COMMIT"
+          git -C "$KERNEL_DIR" submodule update --init --recursive
+          test "$(git -C "$KERNEL_DIR" rev-parse HEAD)" = "$REFERENCE_KERNEL_COMMIT"
+          echo "f3a54b3a28fa78aab76c24ecc435ab56be5b6cf58cdb31c1ebcb5c8642ba32ba  $REFERENCE_CONFIG" | sha256sum -c -
+          # Save the clean upstream SCM suffix BEFORE integrating root. This
+          # preserves the stock vermagic instead of adding -dirty/-OnePlus9R.
+          (cd "$KERNEL_DIR" && bash scripts/setlocalversion --save-scmversion)
+          cp "$REFERENCE_CONFIG" "$KERNEL_DIR/arch/arm64/configs/$KERNEL_CONFIG"
+          cp "$EXPECTED_OVERRIDES" "$WORKSPACE/diagnostics/expected-overrides.json"
+          git -C "$KERNEL_DIR" rev-parse HEAD > "$WORKSPACE/diagnostics/kernel-commit.txt"
+          "$CLANG_PATH/clang" --version > "$WORKSPACE/diagnostics/compiler.txt"
+
+      - name: Install pinned SukiSU only
+        run: |
+          bash scripts/kernelsu.sh
+          test "$(git -C "$KERNEL_DIR/KernelSU" rev-parse HEAD)" = "$KSU_REF"
+          git -C "$KERNEL_DIR/KernelSU" rev-parse HEAD > "$WORKSPACE/diagnostics/ksu-commit.txt"
+
+      - name: Apply minimal hooks and required 4.19 compatibility
+        run: |
+          # Required even without SUSFS: kernel_umount.c calls path_umount.
+          bash scripts/patches.sh path_umount
+          test ! -e "$KERNEL_DIR/include/linux/static_call.h"
+          cp patches/oneplus-9r/include/linux/static_call.h "$KERNEL_DIR/include/linux/"
+          patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch
+          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/001-4.19-compat.patch
+          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/001-preinit-layout.patch
+          test ! -e "$KERNEL_DIR/fs/susfs.c"
+          test ! -e "$KERNEL_DIR/include/linux/susfs.h"
+          sha256sum patches/oneplus-9r/minimal_hooks/*.patch \
+            patches/oneplus-9r/ksu_fixes/sukisu-ultra/*.patch \
+            patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/*.patch \
+            patches/oneplus-9r/include/linux/static_call.h > "$WORKSPACE/diagnostics/input-patches.sha256"
+
+      - name: Generate and verify effective config before compiling
+        run: |
+          . scripts/build.sh
+          # This pinned fork has no CONFIG_KSU_MANUAL_HOOK symbol. Its manual
+          # entry points are wired by the explicit patch above; set only the
+          # Kconfig symbols that it actually declares. SUSFS defaults to y!
+          kconf_set_many "$DEFCONFIG_PATH" CONFIG_KSU=y CONFIG_KSU_SUSFS=n \
+            CONFIG_KSU_FEATURE_ADBROOT=n CONFIG_KSU_DEBUG=n CONFIG_KPM=n
+          export PATH="$CLANG_PATH:$PATH"
+          unset DISABLE_LTO
+          args=$(make_args)
+          # shellcheck disable=SC2086
+          make -C "$KERNEL_DIR" CC=clang $args "$KERNEL_CONFIG"
+          cp "$KERNEL_DIR/out/.config" "$WORKSPACE/diagnostics/kernel.config"
+          python3 scripts/compare-kconfig.py "$REFERENCE_CONFIG" "$KERNEL_DIR/out/.config" \
+            --report "$WORKSPACE/diagnostics/config-comparison.json" --expected-overrides "$EXPECTED_OVERRIDES"
+
+      - name: Compile minimal SukiSU kernel
+        run: bash scripts/build.sh compile
+
+      - name: Verify final config and output
+        run: |
+          bash scripts/build.sh check
+          release=$(sed -n 's/^#define UTS_RELEASE "\(.*\)"/\1/p' "$KERNEL_DIR/out/include/generated/utsrelease.h")
+          test "$release" = '4.19.325-cip136-st20-perf-g078365e5318d'
+          printf '%s\n' "$release" > "$WORKSPACE/diagnostics/kernel-release.txt"
+          cp "$KERNEL_DIR/out/.config" "$WORKSPACE/diagnostics/kernel.config"
+          python3 scripts/compare-kconfig.py "$REFERENCE_CONFIG" "$KERNEL_DIR/out/.config" \
+            --report "$WORKSPACE/diagnostics/config-comparison.json" --expected-overrides "$EXPECTED_OVERRIDES"
+          cp "$KERNEL_DIR/out/arch/arm64/boot/Image" "$WORKSPACE/diagnostics/Image"
+
+      - name: Package diagnostic artifact (not a release)
+        run: bash scripts/package.sh anykernel3
+
+      - name: Check actual installer
+        run: |
+          python3 tests/check_anykernel_slots.py "$ANYKERNEL3_ZIP"
+          python3 tests/check_anykernel_devices.py "$ANYKERNEL3_ZIP"
+          cp "$ANYKERNEL3_ZIP" "$WORKSPACE/diagnostics/"
+
+      - name: Upload diagnostics even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnePlus9R-sukisu-minimal-${{ github.run_id }}
+          path: kernel_workspace/diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # No release job, no write token, and no publish_release input.

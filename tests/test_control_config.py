@@ -1,5 +1,6 @@
 """The no-root control must fail closed on configuration drift."""
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -41,6 +42,36 @@ class ControlConfigTests(unittest.TestCase):
             a.write_text('CONFIG_CC_VERSION_TEXT="Android (15071444) clang version 22.0.2"\n')
             b.write_text('CONFIG_CC_VERSION_TEXT="Android (15682573) clang version 22.0.2"\n')
             self.assertIn('CONFIG_CC_VERSION_TEXT', compare.compare(a, b))
+
+    def test_explicit_overrides_are_required_values_not_ignore_rules(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp) / 'a', Path(tmp) / 'b'
+            a.write_text('CONFIG_KPROBES=y\n')
+            b.write_text('CONFIG_KPROBES=y\nCONFIG_KSU=y\n')
+            self.assertEqual(compare.compare(a, b, {'CONFIG_KSU': 'y'}), {})
+            self.assertIn('CONFIG_KSU', compare.compare(a, a, {'CONFIG_KSU': 'y'}))
+            b.write_text('CONFIG_KPROBES=n\nCONFIG_KSU=y\nCONFIG_KSU_SUSFS=y\n')
+            self.assertEqual(set(compare.compare(a, b, {'CONFIG_KSU': 'y'})),
+                             {'CONFIG_KPROBES', 'CONFIG_KSU_SUSFS'})
+
+    def test_minimal_suki_is_diagnostic_and_allows_only_ksu_config_delta(self):
+        workflow = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-sukisu-minimal.yml').read_text())
+        self.assertEqual(workflow['permissions'], {'contents': 'read'})
+        self.assertEqual(set(workflow['jobs']), {'minimal'})
+        commands = '\n'.join(s.get('run', '') for s in workflow['jobs']['minimal']['steps'])
+        self.assertIn('scripts/kernelsu.sh', commands)
+        self.assertNotIn('scripts/patches.sh all', commands)
+        self.assertNotIn('scripts/patches.sh susfs', commands)
+        self.assertIn('CONFIG_KSU_SUSFS=n', commands)
+        self.assertIn('CONFIG_KSU_FEATURE_ADBROOT=n', commands)
+        self.assertIn('--save-scmversion', commands)
+        self.assertNotIn('action-gh-release', str(workflow))
+        expected = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-minimal-overrides.json').read_text())
+        self.assertEqual(expected, {'CONFIG_KSU': 'y'})
+        hooks = (ROOT / 'patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch').read_text()
+        self.assertNotIn('ksu_handle_setresuid', hooks)
+        self.assertIn('ksu_handle_vfs_fstat(fd, &stat->size)', hooks)
+        self.assertIn('!error && (stat->result_mask & STATX_SIZE)', hooks)
 
     def test_control_has_no_release_or_root_installation(self):
         workflow = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-control.yml').read_text())

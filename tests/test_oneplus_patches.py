@@ -269,6 +269,61 @@ int main(void) {
 '''
             self.compile_run(source)
 
+    def test_minimal_non_susfs_path_and_fstat_hooks(self):
+        text = (PATCHES / 'minimal_hooks/kernel-4.19-sukisu.patch').read_text()
+        def hunk(file, marker):
+            section = text.split(f'diff --git a/{file} b/{file}\n')[1].split('diff --git ')[0]
+            selected = next(part for part in re.split(r'^@@.*@@.*$', section, flags=re.M)
+                            if marker in part)
+            return '\n'.join(line[1:] for line in selected.splitlines()
+                             if (line.startswith('+') and not line.startswith('+++'))
+                             or line.startswith(' '))
+        opening = hunk('fs/open.c', 'getname_flags')
+        opening = opening[opening.index('#ifdef CONFIG_KSU'):opening.index('\n\tif (res)')]
+        stat = hunk('fs/stat.c', 'getname_flags')
+        stat = stat[stat.index('#ifdef CONFIG_KSU'):stat.index('\n\tif (error)')]
+        fdstat = hunk('fs/stat.c', 'ksu_handle_vfs_fstat')
+        fdstat = fdstat[fdstat.index('#ifdef CONFIG_KSU'):fdstat.index('#endif') + len('#endif')]
+        source = r'''
+#include <assert.h>
+#include <string.h>
+#define CONFIG_KSU 1
+#define __user
+#define STATX_SIZE 0x200
+typedef long long loff_t;
+struct path { int unused; };
+struct kstat { unsigned int result_mask; loff_t size; };
+static int path_calls, stat_calls;
+int user_path_at(int fd, const char *filename, unsigned int flags, struct path *path) {
+    assert(!strcmp(filename, "/system/bin/sh")); ++path_calls; return 0;
+}
+int ksu_handle_faccessat(int *fd, const char **filename, int *mode, int *flags) {
+    *filename = "/system/bin/sh"; return 0;
+}
+int ksu_handle_stat(int *fd, const char **filename, int *flags) {
+    *filename = "/system/bin/sh"; return 0;
+}
+void ksu_handle_vfs_fstat(int fd, loff_t *size) { *size += 42; ++stat_calls; }
+'''
+        source += 'int access_probe(int dfd, const char *filename, int mode) {\nint res; unsigned int lookup_flags=0; struct path path;\n' + opening + '\nreturn res;\n}\n'
+        source += 'int stat_probe(int dfd, const char *filename, int flags) {\nint error; unsigned int lookup_flags=0; struct path path;\n' + stat + '\nreturn error;\n}\n'
+        source += 'void fstat_probe(int fd, int error, struct kstat *stat) {\n' + fdstat + '\n}\n'
+        source += r'''
+int main(void) {
+    struct kstat stat = {STATX_SIZE, 10};
+    assert(access_probe(0, "/system/bin/su", 0) == 0);
+    assert(stat_probe(0, "/system/bin/su", 0) == 0);
+    assert(path_calls == 2);
+    fstat_probe(1, -1, &stat); assert(stat_calls == 0 && stat.size == 10);
+    stat.result_mask = 0;
+    fstat_probe(1, 0, &stat); assert(stat_calls == 0 && stat.size == 10);
+    stat.result_mask = STATX_SIZE;
+    fstat_probe(1, 0, &stat); assert(stat_calls == 1 && stat.size == 52);
+    return 0;
+}
+'''
+        self.compile_run(source)
+
 
 if __name__ == '__main__':
     unittest.main()

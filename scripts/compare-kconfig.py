@@ -20,8 +20,14 @@ def values(path):
     return result
 
 
-def compare(reference, actual):
+def compare(reference, actual, expected_overrides=None):
     want, got = values(reference), values(actual)
+    if expected_overrides is not None:
+        if not isinstance(expected_overrides, dict) or any(
+                not re.fullmatch(r'CONFIG_[A-Z0-9_]+', key) or not isinstance(value, str)
+                for key, value in expected_overrides.items()):
+            raise ValueError('Expected overrides must map CONFIG symbols to explicit string values')
+        want.update(expected_overrides)
     # Kconfig may omit unavailable disabled symbols. Treat absence as disabled,
     # but do not ignore compiler, version, string, integer or enabled settings.
     return {key: {'reference': want.get(key, 'n'), 'actual': got.get(key, 'n')}
@@ -34,10 +40,13 @@ if __name__ == '__main__':
     parser.add_argument('reference')
     parser.add_argument('actual')
     parser.add_argument('--report', required=True)
+    parser.add_argument('--expected-overrides', help='JSON of explicitly expected values; not ignored symbols')
     args = parser.parse_args()
-    differences = compare(args.reference, args.actual)
+    overrides = json.loads(Path(args.expected_overrides).read_text()) if args.expected_overrides else None
+    differences = compare(args.reference, args.actual, overrides)
     Path(args.report).write_text(json.dumps(differences, indent=2) + '\n')
     if differences:
         print(json.dumps(differences, indent=2))
         raise SystemExit('Control configuration drifted; do not compile/publish it as the reference')
-    print('PASS: all effective Kconfig values match the working-device reference')
+    print('PASS: all effective Kconfig values match the working-device reference' +
+          (' plus explicit expected overrides' if overrides is not None else ''))

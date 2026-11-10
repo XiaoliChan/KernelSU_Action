@@ -1,0 +1,144 @@
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -382,6 +382,14 @@
+ 			       unsigned int type, unsigned int code, int value)
+ {
+ 	int disposition = input_get_disposition(dev, type, code, &value);
++
++#ifdef CONFIG_KSU
++	{
++		extern int ksu_handle_input_handle_event(unsigned int *type,
++						  unsigned int *code, int *value);
++		ksu_handle_input_handle_event(&type, &code, &value);
++	}
++#endif
+ 
+ 	if (disposition != INPUT_IGNORE_EVENT && type != EV_SYN)
+ 		add_input_randomness(type, code, value);
+diff --git a/fs/exec.c b/fs/exec.c
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -1900,6 +1900,13 @@
+ 			      struct user_arg_ptr envp,
+ 			      int flags)
+ {
++#ifdef CONFIG_KSU
++	extern int ksu_handle_execveat(int *fd, struct filename **filename,
++				     void *argv, void *envp, int *flags);
++
++	if (!IS_ERR(filename))
++		ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
++#endif
+ 	return __do_execve_file(fd, filename, argv, envp, flags, NULL);
+ }
+ 
+diff --git a/fs/open.c b/fs/open.c
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -405,7 +405,29 @@
+ 
+ 	old_cred = override_creds(override_cred);
+ retry:
++#ifdef CONFIG_KSU
++#ifdef CONFIG_KSU_SUSFS
++	{
++		struct filename *name = getname_flags(filename, lookup_flags, NULL);
++		extern int ksu_handle_faccessat(int *dfd, struct filename **name,
++					       int *mode, int *flags);
++
++		if (!IS_ERR(name))
++			ksu_handle_faccessat(&dfd, &name, &mode, NULL);
++		/* filename_lookup consumes name on success and failure. */
++		res = filename_lookup(dfd, name, lookup_flags, &path, NULL);
++	}
++#else
++	{
++		extern int ksu_handle_faccessat(int *dfd, const char __user **name,
++					       int *mode, int *flags);
++		ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
++		res = user_path_at(dfd, filename, lookup_flags, &path);
++	}
++#endif
++#else
+ 	res = user_path_at(dfd, filename, lookup_flags, &path);
++#endif
+ 	if (res)
+ 		goto out;
+ 
+diff --git a/fs/read_write.c b/fs/read_write.c
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -588,6 +588,14 @@
+ 
+ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
+ {
++#ifdef CONFIG_KSU
++	{
++		extern int ksu_handle_sys_read(unsigned int fd,
++					       char __user **buf_ptr,
++					       size_t *count_ptr);
++		ksu_handle_sys_read(fd, &buf, &count);
++	}
++#endif
+ 	return ksys_read(fd, buf, count);
+ }
+ 
+diff --git a/fs/stat.c b/fs/stat.c
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -142,6 +142,12 @@
+ 	if (f.file) {
+ 		error = vfs_getattr(&f.file->f_path, stat,
+ 				    request_mask, query_flags);
++#ifdef CONFIG_KSU
++		if (!error && (stat->result_mask & STATX_SIZE)) {
++			extern void ksu_handle_vfs_fstat(int fd, loff_t *size);
++			ksu_handle_vfs_fstat(fd, &stat->size);
++		}
++#endif
+ 		fdput(f);
+ 	}
+ 	return error;
+@@ -182,7 +188,26 @@
+ 		lookup_flags |= LOOKUP_EMPTY;
+ 
+ retry:
++#ifdef CONFIG_KSU
++#ifdef CONFIG_KSU_SUSFS
++	{
++		struct filename *name = getname_flags(filename, lookup_flags, NULL);
++		extern int ksu_handle_stat(int *dfd, struct filename **name, int *flags);
++
++		if (!IS_ERR(name))
++			ksu_handle_stat(&dfd, &name, &flags);
++		error = filename_lookup(dfd, name, lookup_flags, &path, NULL);
++	}
++#else
++	{
++		extern int ksu_handle_stat(int *dfd, const char __user **name, int *flags);
++		ksu_handle_stat(&dfd, &filename, &flags);
++		error = user_path_at(dfd, filename, lookup_flags, &path);
++	}
++#endif
++#else
+ 	error = user_path_at(dfd, filename, lookup_flags, &path);
++#endif
+ 	if (error)
+ 		goto out;
+ 
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -308,6 +308,11 @@
+ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+ 		void __user *, arg)
+ {
++#ifdef CONFIG_KSU
++	extern int ksu_handle_sys_reboot(int magic1, int magic2,
++					  unsigned int cmd, void __user **arg);
++	ksu_handle_sys_reboot(magic1, magic2, cmd, &arg);
++#endif
+ 	struct pid_namespace *pid_ns = task_active_pid_ns(current);
+ 	char buffer[256];
+ 	int ret = 0;
