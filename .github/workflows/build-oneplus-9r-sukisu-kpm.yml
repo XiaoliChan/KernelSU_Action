@@ -1,4 +1,4 @@
-name: Build OnePlus 9R (SukiSU KPM)
+name: Build OnePlus 9R (SukiSU ADB-root + KPM)
 
 on:
   workflow_dispatch:

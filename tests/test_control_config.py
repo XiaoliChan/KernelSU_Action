@@ -78,7 +78,8 @@ class ControlConfigTests(unittest.TestCase):
                 ('build-oneplus-9r-control.yml', 'oneplus-9r-lineage-control.env'),
                 ('build-oneplus-9r-sukisu-minimal.yml', 'oneplus-9r-lineage-sukisu-minimal.env'),
                 ('build-oneplus-9r-sukisu-adbroot.yml', 'oneplus-9r-lineage-sukisu-adbroot.env'),
-                ('build-oneplus-9r-sukisu-kpm.yml', 'oneplus-9r-lineage-sukisu-kpm.env')):
+                ('build-oneplus-9r-sukisu-kpm.yml', 'oneplus-9r-lineage-sukisu-kpm.env'),
+                ('build-oneplus-9r-sukisu-susfs.yml', 'oneplus-9r-lineage-sukisu-susfs.env')):
             workflow = yaml.safe_load((ROOT / '.github/workflows' / workflow_name).read_text())
             job = next(iter(workflow['jobs'].values()))
             self.assertEqual(job['env']['CCACHE_COMPILERCHECK'], 'content')
@@ -121,6 +122,28 @@ class ControlConfigTests(unittest.TestCase):
         profile = (ROOT / 'config/oneplus-9r-lineage-sukisu-minimal.env').read_text()
         self.assertIn('DISABLE_CC_WERROR=false', profile)
         self.assertNotIn('-Wno-error', profile)
+
+    def test_susfs_keeps_combined_root_and_disables_inert_map_option(self):
+        kpm = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-kpm-overrides.json').read_text())
+        expected = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-susfs-overrides.json').read_text())
+        self.assertTrue(all(expected[k] == v for k, v in kpm.items()))
+        self.assertTrue(all(k.startswith('CONFIG_KSU_SUSFS') for k in expected.keys() - kpm.keys()))
+        self.assertNotIn('CONFIG_KSU_SUSFS_SUS_MAP', expected)
+        wf = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-sukisu-susfs.yml').read_text())
+        self.assertEqual(wf['permissions'], {'contents': 'read'})
+        commands = '\n'.join(s.get('run', '') for s in wf['jobs']['susfs']['steps'])
+        for flag in ('CONFIG_KSU_SUSFS_SUS_MAP=n', 'CONFIG_KSU_FEATURE_ADBROOT=y', 'CONFIG_KPM=y', '--fuzz=0'):
+            self.assertIn(flag, commands)
+        self.assertNotIn('action-gh-release', str(wf))
+        self.assertNotIn('scripts/patches.sh all', commands)
+        minimal = (ROOT / 'patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch').read_text()
+        extra = (ROOT / 'patches/oneplus-9r/susfs_hooks/kernel-4.19-uid.patch').read_text()
+        legacy = (ROOT / 'patches/oneplus-9r/kernel_hooks/kernel-4.19-sukisu-ultra.patch').read_text()
+        self.assertEqual(legacy, minimal + extra)
+        self.assertEqual(extra.count('ksu_handle_setresuid(target_uid,'), 1)
+        self.assertIn('target_uid = new->uid.val', extra)
+        self.assertLess(extra.index('if (retval < 0)'), extra.index('ksu_handle_setresuid(target_uid,'))
+        self.assertLess(extra.index('ksu_handle_setresuid(target_uid,'), extra.index('return commit_creds(new)'))
 
     def test_control_has_no_release_or_root_installation(self):
         workflow = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-control.yml').read_text())
