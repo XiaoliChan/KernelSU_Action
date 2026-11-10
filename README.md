@@ -40,6 +40,10 @@ Release 附带 AnyKernel3 刷机 ZIP、内核镜像、可选 boot/DTBO 及 `SHA2
 从 Release 下载的 AnyKernel3 ZIP 可直接使用；从 Actions Artifacts 下载时，需先解开外层 artifact ZIP，使用里面的 AnyKernel3 ZIP，**不要刷外层包**。
 补丁已知问题见 [OnePlus 9R 补丁审查](docs/oneplus-9r-review.md)，自动发布不代表已完成设备验证。
 
+默认 AnyKernel3 安装脚本由本仓库维护，只替换 boot 内核并保留原 ramdisk，不使用上游的设备示例补丁。9R 配置限制设备为 `lemonades`，强制识别活动 A/B 槽位；识别失败则中止。
+`ANYKERNEL3_DEVICE` 指定设备代号，`ANYKERNEL3_SLOT_DEVICE` 为 `auto` / `0` / `1`。自定义 AnyKernel3 保留用户提供的安装脚本。
+安装器不会自动卸载 Magisk。若要从 Magisk 完全迁移到 KernelSU 分支，应先备份并在 Magisk 应用中完整卸载。
+
 ## 支持的 KernelSU 分支
 
 用 `KSU_VARIANT` 选择：

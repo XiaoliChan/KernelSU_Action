@@ -11,6 +11,9 @@ Releases include the prebuilt AnyKernel3 ZIP, kernel image, optional boot/DTBO i
 Use the AnyKernel3 ZIP directly from Releases. When downloading through Actions Artifacts, extract the outer artifact ZIP first and flash the inner AnyKernel3 ZIP, **not the outer archive**.
 See the [OnePlus 9R patch review (Chinese)](docs/oneplus-9r-review.md) for known issues; automatic publication does not imply device validation.
 
+The default installer is maintained in this repository, replaces the boot kernel, and preserves the existing ramdisk. Upstream example payloads are removed. The 9R profiles enforce `lemonades` and require active A/B slot detection; missing slot information aborts installation.
+`ANYKERNEL3_DEVICE` selects the device codename and `ANYKERNEL3_SLOT_DEVICE` accepts `auto`, `0`, or `1`. Custom AnyKernel3 scripts remain untouched. The installer does not uninstall Magisk automatically.
+
 A GitHub Actions workflow that integrates KernelSU (and its forks), SUSFS and the common kernel patches into an Android kernel, and produces a flashable AnyKernel3 package.
 
 Assumes some familiarity with Android kernels.

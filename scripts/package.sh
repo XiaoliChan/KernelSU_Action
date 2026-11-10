@@ -10,6 +10,22 @@ WORKSPACE=${WORKSPACE:-$(cd "${KERNEL_DIR}/.." && pwd)}
 ARCH=${ARCH:-arm64}
 BOOT_OUT="${KERNEL_DIR}/out/arch/${ARCH}/boot"
 AK3="${WORKSPACE}/AnyKernel3"
+PACKAGE_REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# Pin the tooling independently of the device-specific installation policy.
+AK3_COMMIT=41f04bdb4ee30a44e429c2c1131d5e8bb32b15f1
+
+configure_anykernel3() {
+	local device=${ANYKERNEL3_DEVICE:-} slot=${ANYKERNEL3_SLOT_DEVICE:-auto}
+	[[ "$device" =~ ^[a-zA-Z0-9_-]*$ ]] || die "invalid ANYKERNEL3_DEVICE"
+	case "$slot" in auto | 0 | 1) ;; *) die "invalid ANYKERNEL3_SLOT_DEVICE" ;; esac
+	cp "${PACKAGE_REPO_ROOT}/packaging/anykernel.sh" "${AK3}/anykernel.sh"
+	# Never ship upstream's example payloads (init.tuna, fstab, ramdisk files).
+	rm -rf "${AK3}/patch" "${AK3}/ramdisk" "${AK3}/modules"
+	sed -i "s/^IS_SLOT_DEVICE=auto;/IS_SLOT_DEVICE=${slot};/" "${AK3}/anykernel.sh"
+	if [ -n "$device" ]; then
+		sed -i "s/^do.devicecheck=0$/do.devicecheck=1/; s/^device.name1=$/device.name1=${device}/" "${AK3}/anykernel.sh"
+	fi
+}
 
 make_anykernel3() {
 	group "Building AnyKernel3 package"
@@ -32,13 +48,12 @@ make_anykernel3() {
 				extract_archive "${WORKSPACE}/ak3.zip" "$AK3" ;;
 		esac
 	else
-		retry 3 git clone -q --depth=1 https://github.com/osm0sis/AnyKernel3 "$AK3" \
-			|| die "failed to clone AnyKernel3"
-		# Device checks are meaningless here: we do not know the target's
-		# ro.product.device, and the zip is flashed deliberately by its builder.
-		sed -i 's/do.devicecheck=1/do.devicecheck=0/g' "${AK3}/anykernel.sh"
-		sed -i 's!BLOCK=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;!BLOCK=auto;!g' "${AK3}/anykernel.sh"
-		sed -i 's/IS_SLOT_DEVICE=0;/is_slot_device=auto;/g' "${AK3}/anykernel.sh"
+		git init -q "$AK3"
+		git -C "$AK3" remote add origin https://github.com/osm0sis/AnyKernel3
+		retry 3 git -C "$AK3" fetch -q --depth=1 origin "$AK3_COMMIT" \
+			|| die "failed to fetch pinned AnyKernel3"
+		git -C "$AK3" checkout -q --detach FETCH_HEAD
+		configure_anykernel3
 	fi
 
 	cp "${BOOT_OUT}/${KERNEL_IMAGE_NAME}" "${AK3}/" \
@@ -56,6 +71,12 @@ make_anykernel3() {
 	rm -f "$archive"
 	( cd "$AK3" && zip -qry9 "$archive" . ) || die "failed to archive AnyKernel3"
 	unzip -tq "$archive" >/dev/null || die "AnyKernel3 zip integrity check failed"
+	if ! is_true "${USE_CUSTOM_ANYKERNEL3:-false}"; then
+		python3 "${PACKAGE_REPO_ROOT}/scripts/verify-anykernel.py" "$archive" \
+			--device "${ANYKERNEL3_DEVICE:-}" --slot "${ANYKERNEL3_SLOT_DEVICE:-auto}" \
+			--image-name "$KERNEL_IMAGE_NAME" --image "${BOOT_OUT}/${KERNEL_IMAGE_NAME}" \
+			|| die "AnyKernel3 installer audit failed"
+	fi
 	export_env ANYKERNEL3_ZIP "$archive"
 	ok "AnyKernel3 flashable zip: ${archive}"
 	endgroup

@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    paths: ['scripts/**', 'patches/**', 'tests/**', '.github/workflows/**', 'config.env', 'config/**']
+    paths: ['scripts/**', 'patches/**', 'packaging/**', 'tests/**', '.github/workflows/**', 'config.env', 'config/**']
   pull_request:
-    paths: ['scripts/**', 'patches/**', 'tests/**', '.github/workflows/**', 'config.env', 'config/**']
+    paths: ['scripts/**', 'patches/**', 'packaging/**', 'tests/**', '.github/workflows/**', 'config.env', 'config/**']
   workflow_dispatch:
 
 permissions:

@@ -77,6 +77,8 @@ declare -A DEFAULTS=(
 	[USE_CUSTOM_ANYKERNEL3]="false"
 	[CUSTOM_ANYKERNEL3_SOURCE]=""
 	[CUSTOM_ANYKERNEL3_BRANCH]=""
+	[ANYKERNEL3_DEVICE]=""
+	[ANYKERNEL3_SLOT_DEVICE]="auto"
 	[NEED_DTBO]="false"
 	[BUILD_BOOT_IMG]="false"
 	[SOURCE_BOOT_IMAGE]=""
@@ -183,6 +185,11 @@ apply_legacy_bridge() {
 validate() {
 	local errors=0
 	_err() { warn "config: $*"; errors=$((errors + 1)); }
+	[[ "${CFG[ANYKERNEL3_DEVICE]}" =~ ^[a-zA-Z0-9_-]*$ ]] || _err "invalid ANYKERNEL3_DEVICE"
+	case "${CFG[ANYKERNEL3_SLOT_DEVICE]}" in
+		auto | 0 | 1) ;;
+		*) _err "ANYKERNEL3_SLOT_DEVICE must be auto, 0 or 1" ;;
+	esac
 
 	[ -n "${CFG[KERNEL_SOURCE]}" ]        || _err "KERNEL_SOURCE is required"
 	[ -n "${CFG[KERNEL_SOURCE_BRANCH]}" ] || _err "KERNEL_SOURCE_BRANCH is required"
