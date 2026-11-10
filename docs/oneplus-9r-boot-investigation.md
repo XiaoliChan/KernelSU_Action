@@ -109,3 +109,15 @@ vfs_create_mount: 0x0049f7a8 .. 0x0049f807
 函数不存在成功返回路径，分配结果被忽略；该缺陷已进入用户刷入的二进制，足以阻止正常挂载/启动，不只是源码推测。尚不能据此排除同时存在其他故障。
 
 提交 `1caa24d` 恢复独立的条件语句，增加真实补丁片段的 C 回归测试：SUSFS 开/关 × KSU/普通域 × 分配成功/失败，同时检查所有补丁新增 `#endif/#else` 行不吞掉 C 语句。43 项测试通过。新构建 `42870965525` 仍需实机验证，原失败镜像保留不动。
+
+### 首次 SUSFS 候选的运行时结果与管理器连接修复
+
+构建 `42870965525` 后续已完成临时启动：`sys.boot_completed=1`，完整构建时间为 `Tue Nov 10 18:09:07 UTC 2026`。ADB-root UID 0、KPM ABI 2/loader 0xe00/模块数 0 均正常；SUSFS 返回 `true`、`v1.5.9-v2compat`、`NON-GKI`。实机探针成功观察到 uname 变化，并恢复原 release/version。`boot_a` 回读仍是永久 ADB-root 镜像，未刷写新候选。
+
+但是不能将这轮标为完整通过：官方管理器显示 Unsupported。内核日志确认管理器签名通过、UID 10118 已识别；管理器进程仍为 `Seccomp: 2`，没有 KSU 驱动 FD。与之相对，root 启动的 `ksud` 可以查询所有内核接口。
+
+追踪发现 `kernel/selinux/rules.c` 仅在 ≥5.10 的策略分支调用 `susfs_set_batch_sid()`，旧内核分支没有调用。通用的 `cache_sid()` 初始化另一组缓存，不能代替 SUSFS 专用 SID；实机也没有 SUSFS 批量 SID 初始化日志。SUSFS 的 zygote/管理器 UID hook 因而无法正确匹配域，挂载分类也未得到正确 SID。
+
+提交 `624bc60` 在旧内核策略更新完成、锁已释放的 `out_flush` 路径补上 SUSFS SID 初始化。未修改管理器签名检查、包名、授权列表或 SELinux enforcing 状态。构建 `42876653991` 用于验证修复，必须重新检查管理器 Working、ADB-root、KPM、SUSFS 和实际挂载路径，不能只复查 root CLI。
+
+另：锁屏截图一度全黑，日志证明是设备面朝下触发约两秒自动息屏，不是 UI 崩溃。短暂开启 USB 保持唤醒以验证 UI 后已恢复原设置；未持久化用户解锁信息。
