@@ -89,3 +89,4 @@
 - 启用有原生实现的 path/mount/kstat/uname/cmdline/open_redirect 等；禁用兼容层没有实现的 SUS_MAP。v2 的动态 mount 开关、AVC 和 map 兼容入口返回 `EOPNOTSUPP`，不能用“调用不报错”伪装功能有效。
 - 修正 `strlen` 的 printk 格式为 `%zu`，检查兼容层的 usercopy 返回值，保留 `CONFIG_CC_WERROR=y`。
 - 用户态 `ksud susfs` 自带 status/version/variant/features 查询，可先直接验证内核接口，无需为了显示支持而安装额外模块。
+- `tests/susfs_device_probe.c` 是可选的 arm64 用户态实机探针，不是内核/KPM 模块。先查询 version/variant/features，查询失败时不做任何修改；查询成功后短暂改变 uname 的 release，立即恢复原 release/version，并对真实 syscall 结果做比较。它不写持久配置，不改分区/授权/SELinux。已在无 SUSFS 的 ADB-root + KPM 基线上确认查询失败、未尝试修改。正向实机结果仍待 SUSFS 候选启动。
