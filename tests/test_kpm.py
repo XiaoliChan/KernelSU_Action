@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+import zlib
 
 import yaml
 
@@ -71,6 +72,38 @@ class KpmTests(unittest.TestCase):
             with patch.object(kpm, 'components', return_value={'changed': True}):
                 with self.assertRaises(ValueError):
                     kpm.patch(d, d / 'bridge.h', d / 'nonexistent', d / 'reports')
+
+    def test_patch_atomicity_and_secret_transport(self):
+        for valid in (True, False):
+            with self.subTest(valid=valid), tempfile.TemporaryDirectory() as tmp:
+                d = Path(tmp)
+                (d / 'manifest.json').write_text('{}')
+                image = d / 'Image'
+                config = zlib.compressobj(wbits=16 + zlib.MAX_WBITS)
+                packed = config.compress(b'CONFIG_KPM=y\n') + config.flush()
+                raw = b'\0' * 56 + b'ARMdIKCFG_ST' + packed + b'IKCFG_ED'
+                image.write_bytes(raw)
+
+                def fake_tool(argv, **kwargs):
+                    self.assertEqual(argv[argv.index('--skey-fd') + 1], '0')
+                    self.assertNotIn(kwargs['input'], argv)
+                    self.assertRegex(kwargs['input'], r'^[a-f0-9]{48}$')
+                    Path(argv[argv.index('--out') + 1]).write_bytes(raw + b'payload' * 1024)
+                    return type('Result', (), {'returncode': 0, 'stdout': 'redacted log'})()
+
+                post = META if valid else META.replace('0xe00', '0x0')
+                with patch.object(kpm, 'components', return_value={}), \
+                     patch.object(kpm, 'listing', side_effect=['[kernel]\npatched=false\n', post]), \
+                     patch.object(kpm.subprocess, 'run', side_effect=fake_tool):
+                    if valid:
+                        kpm.patch(d, d / 'bridge.h', image, d / 'reports')
+                        self.assertGreater(image.stat().st_size, len(raw))
+                        report = json.loads((d / 'reports/kpm-patch.json').read_text())
+                        self.assertEqual(report['output_image_sha256'], kpm.sha(image))
+                    else:
+                        with self.assertRaises(ValueError):
+                            kpm.patch(d, d / 'bridge.h', image, d / 'reports')
+                        self.assertEqual(image.read_bytes(), raw)
 
     def test_kpm_stage_adds_only_kpm_and_never_releases(self):
         adb = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-adbroot-overrides.json').read_text())

@@ -57,3 +57,24 @@
 第一轮最小 SukiSU 构建 `42823311868` 通过了配置校验，但编译失败：reboot hook 在局部变量声明前执行语句；上游非 SUSFS 分支存在 `KSU_NO_PREINIT` 重定义、未加条件保护的 SUSFS 调用和旧内核分支的未使用变量。针对这些错误修正源代码，不关闭参考配置的 `CONFIG_CC_WERROR`。
 
 两个诊断工作流现启用 3 GB ccache，明确统一缓存路径、以编译器内容校验身份，并按系统/架构/固定工具链分组。每轮使用唯一保存键及共同恢复前缀，编译报错也保存已完成的缓存，并输出本轮命中统计。首次为冷缓存；缓存不加速链接，也不会跳过配置或产物检查。
+
+## Minimal 与 ADB-root 已完成实机验证（2026-11-11）
+
+- Minimal 构建 `42829399023` 已完成临时启动、管理器 Working 和永久刷入验证。
+- ADB-root 构建 `42850640978` 在相同基线上仅新增 `CONFIG_KSU_FEATURE_ADBROOT=y`，嵌入配置逐项比较及 AVB hash 验证通过。
+- 先临时启动 ADB-root，完整 `/proc/version` 匹配 `Tue Nov 10 16:10:47 UTC 2026`；不能只看相同的 `uname -r`。
+- 管理器启用 ADB Root 后，`adb shell id` 为 `uid=0`、域 `u:r:ksu:s0`；adbd 的实际 UID/GID 全为 0，maps 包含 `libadbroot.so`，dmesg 显示 `adb_root: set to 1` 与 `escape to root for adb`。
+- 经用户授权永久刷入 `boot_a` 后，正常重启再次验证启动身份、root 和分区回读 SHA256：`b360977005f539a596d561dabeb212ac35aec5f590db07b51dd817d53da7a6dd`。
+- 该阶段 ccache 命中 `4000/4005`（99.88%）；只表示可缓存的编译任务，不能用于承诺总耗时。
+
+## ADB-root + KPM 组合候选
+
+不是两个互斥的功能版本：`build-oneplus-9r-sukisu-kpm.yml` 和对应 profile 同时设置 `CONFIG_KSU_FEATURE_ADBROOT=y`、`CONFIG_KPM=y`，继续关闭 SUSFS/debug。构建 `42860708191` 正在进行，尚不能宣称 KPM 实机通过。
+
+修正旧 KPM 后处理链：固定版本的 `patch_linux` 实测可以退出 0 并产出 oImage，但日志中 kpimg 只有 `0x10`、版本为 0。不能用退出码或文件存在证明 KPM 生效。公开 release 0.14.0 的源码 ABI 也不是当前 SukiSU 要求的 ABI 2。
+
+现在从 KernelPatch 提交 `1c5b608916357ac86a94cc736e235db1fac4a29d` 同源构建真实 `kpimg` 与 `kptools`，ARM 编译器归档固定 SHA256。先检查两个头文件的实际数字 ABI 和三个 framing tag，再检查 payload 大小、版本、架构及 release 属性；只对启用 `CONFIG_KPM=y` 的 arm64 Image 执行后处理。随机 legacy key 经 stdin 传递，不写 argv 或清单。输出检查 `patched=true`、内嵌配置未变、模块数为 0，通过后才原子替换 Image。保留组件和输入/输出 SHA256 诊断清单。
+
+实机计划：只临时启动组合镜像；验证 ADB-root 仍有效、KPM bridge 支持状态、loader 版本和模块数，不加载 KPM 模块。通过后再在该组合基线上加入 SUSFS。
+
+“完整”必须按当前内核支持范围限定：该固定 SukiSU 源码的 SELinux Hide 由 `LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)` 保护，4.19 不包含；当前管理器也报告 AVC Spoof 不支持。不能将所有显示 Unsupported 的选项都归因于尚未集成 SUSFS，也不能把配置开关齐全等同于每项运行时功能已验证。
