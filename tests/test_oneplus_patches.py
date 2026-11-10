@@ -192,6 +192,59 @@ int main(void) {
                               'copy_from_user(', 'return'):
                 self.assertNotIn(forbidden, locked, name)
 
+    def test_added_preprocessor_endings_do_not_swallow_statements(self):
+        for path in PATCHES.rglob('*.patch'):
+            for line in path.read_text().splitlines():
+                if re.match(r'^\+#\s*(endif|else)\b', line):
+                    tail = re.sub(r'^\+#\s*(endif|else)\b', '', line)
+                    tail = re.sub(r'/\*.*?\*/|//.*', '', tail).strip()
+                    self.assertEqual(tail, '', f'{path}: {line}')
+
+    def test_susfs_mount_success_is_not_an_unconditional_enomem(self):
+        text = (PATCHES / '50_add_susfs_in_kernel-4.19.patch').read_text()
+        section = text.split('diff --git a/fs/namespace.c b/fs/namespace.c\n')[1].split('diff --git ')[0]
+        hunk = next(part for part in re.split(r'^@@.*@@.*$', section, flags=re.M)
+                    if 'alloc_vfsmnt(fc->source' in part)
+        new = '\n'.join(line[1:] for line in hunk.splitlines()
+                        if (line.startswith('+') and not line.startswith('+++')) or line.startswith(' '))
+        end = '\t\treturn ERR_PTR(-ENOMEM);'
+        body = new[new.index('#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT'):new.index(end) + len(end)]
+        for enabled in (False, True):
+            source = ('#define CONFIG_KSU_SUSFS_SUS_MOUNT 1\n' if enabled else '') + r'''
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <errno.h>
+#define unlikely(x) (x)
+#define ERR_PTR(x) ((struct mount *)(long)(x))
+struct mount { int unused; } good_mount;
+struct fs_context { const char *source; };
+static bool ksu, fail_alloc;
+static int allocations;
+static bool __attribute__((unused)) susfs_is_current_ksu_domain(void) { return ksu; }
+static struct mount *alloc_vfsmnt(const char *source, ...) {
+    assert(source); ++allocations; return fail_alloc ? NULL : &good_mount;
+}
+static struct mount *probe(struct fs_context *fc) {
+    struct mount *mnt;
+'''
+            source += body + '\nreturn mnt;\n}\n'
+            source += r'''
+int main(void) {
+    struct fs_context fc = {NULL};
+    int domain, failure;
+    for (domain = 0; domain < 2; ++domain) {
+        for (failure = 0; failure < 2; ++failure) {
+            ksu = domain; fail_alloc = failure; allocations = 0;
+            assert(probe(&fc) == (failure ? ERR_PTR(-ENOMEM) : &good_mount));
+            assert(allocations == 1);
+        }
+    }
+    return 0;
+}
+'''
+            self.compile_run(source)
+
     def test_susfs_queries_and_unsupported_v2_controls(self):
         source = r'''
 #include <assert.h>
