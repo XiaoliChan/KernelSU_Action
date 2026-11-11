@@ -183,3 +183,23 @@ copy_namespace=1 allocated_id=300 visible_id=101 cleanup_id=101 correct=false
 当前进度仅为上游锁定和离线适配预检：直接移植时 2 个文件 clean apply、15 个文件存在拒绝块，另有前端 hook/SELinux/bootconfig 路径需单独对照；**尚未完成 4.19 移植、编译或实机验证**。这不是新版本存在已知卡死的证据，只说明 GKI 5.10 补丁不是 4.19 的直接替换包。旧实验工作流不能当成最新 v2.4 构建入口。
 
 后续门禁：最新核心/头文件来源校验 → 精确 4.19 接入补丁 → ID 分配/clone/unshare/释放生命周期回归 → 严格配置与编译检查 → 经用户确认后临时启动 → 管理器/Root/KPM/SUSFS 与 B 站/公主连结启动、返回、退出、重复开启、锁屏恢复测试。未通过前不覆盖当前日用无 SUSFS 版本。
+
+### 原生 v2.4 基础诊断版编译通过，实机测试待确认
+
+[构建 42958030604](https://github.com/XiaoliChan/KernelSU_Action/actions/runs/42958030604)（提交 `6192cb3`）已完整成功。仍使用同一内核、Clang build 15071444、SukiSU 和 KernelPatch 固定基线；原生 v2.4 核心/头文件与上游锁定文件逐字节一致，4.19 适配单独作为补丁维护，没有引入旧 `susfs_compat.c`。
+
+此阶段在同一镜像保留 **ADB-root + KPM**，开启新版原生挂载处理、uname、cmdline、日志；路径隐藏/kstat/open-redirect/map/priority-UID 的其他 VFS 接入尚未完成，明确关闭，**不是全功能完成版**。
+
+挂载移植保留 4.19 的 fs-pin 初始化；借用 ID 在分配时即标记，覆盖 clone 提前失败路径；新分配的子挂载清除继承的借用标志。新增可执行测试在 SMP/UP 两种模型下各运行一万次分配/归还，并检查借用 ID 0、普通 ID、高 ID、分配失败回收。fsnotify 适配保留上游延迟清理，测试确保回调内不销毁 SRCU group。当前总计 47 项离线测试通过。
+
+编译过程中没有关闭 WERROR：修复 `fs/stat.c` 的内部声明头文件依赖、`susfs_def.h` 的 cred 头依赖，按真正使用它们的 priority-UID 配置保护可选 helper；通过正常 `init/version.o` Kbuild 规则生成 KSU 需要的 `compile.h`，不创建假头文件。固定 Clang 归档曾下载截断，按同一版本重试后继续，未更换工具链。
+
+下载后的 Image 嵌入配置、源码锁、KPM ABI/输出 SHA、ZIP 机型/槽位校验和完整 boot 的 AVB hash 校验均通过。ccache 命中 4099/4110（99.73%，仅指可缓存编译调用）。
+
+```text
+Image SHA256: 7830ba81c87305f8f2748527b8fa7e66bfa73870f9334474d4ba1ef715d9083a
+boot SHA256:  9fdd2f2826dfc35f65c2303b1de3c9e8e70a5e8b7fc69cc0bc4f23edb1390396
+构建时间:    Wed Nov 11 04:23:44 UTC 2026
+```
+
+已向用户询问临时启动及重复 B 站启动/退出验证，**尚未收到本轮许可，尚未上机，不得声称解决了实机卡死**。永久 boot 继续保留已确认正常的无 SUSFS 组合 `c1254979...`，也没有新增 Release。
