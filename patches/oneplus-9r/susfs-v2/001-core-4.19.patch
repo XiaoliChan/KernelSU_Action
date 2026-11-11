@@ -1,6 +1,33 @@
+diff --git a/include/linux/susfs_def.h b/include/linux/susfs_def.h
+--- a/include/linux/susfs_def.h
++++ b/include/linux/susfs_def.h
+@@ -4,6 +4,7 @@
+ #include <linux/bits.h>
+ #include <linux/bitmap.h>
+ #include <linux/string.h>
++#include <linux/cred.h>
+ 
+ /********/
+ /* ENUM */
 diff --git a/fs/susfs.c b/fs/susfs.c
 --- a/fs/susfs.c
 +++ b/fs/susfs.c
+@@ -182,6 +182,7 @@
+  * susfs_restore_creds() afterwards.
+  * Returns the original credentials on success, NULL on failure.
+  */
++#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
+ static struct cred *susfs_switch_to_ksu_domain(void) {
+ 	struct cred *orig_cred = NULL;
+ 	struct cred *cred = NULL;
+@@ -222,6 +223,7 @@
+ 
+ 	commit_creds(orig_cred);
+ }
++#endif
+ 
+ /* sus_path */
+ #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 @@ -2063,8 +2063,28 @@
  	return 0;
  }

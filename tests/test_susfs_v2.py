@@ -54,6 +54,9 @@ class SusfsV2Tests(unittest.TestCase):
         prep = (ROOT / 'scripts/prepare-susfs-v2.sh').read_text()
         self.assertIn('test ! -e "$KERNEL_DIR/fs/susfs_compat.c"', prep)
         self.assertIn('--fuzz=0', prep)
+        compat = (PORT / '001-core-4.19.patch').read_text()
+        self.assertIn('+#include <linux/cred.h>', compat)
+        self.assertIn('+#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER', compat)
 
     def test_mount_ids_borrowed_owned_inheritance_and_error_unwind(self):
         ns = new_side(PORT / '50_add_susfs_in_kernel-4.19.patch', 'fs/namespace.c')
