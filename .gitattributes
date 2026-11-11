@@ -1,3 +1,5 @@
 # Unified-diff context lines intentionally begin with a space before a tab,
 # and an empty context line may contain just its diff marker.
 *.patch whitespace=-blank-at-eol,-space-before-tab
+# Vendored upstream files are hash-locked byte-for-byte, including whitespace.
+patches/oneplus-9r/susfs-v2/upstream/** -whitespace

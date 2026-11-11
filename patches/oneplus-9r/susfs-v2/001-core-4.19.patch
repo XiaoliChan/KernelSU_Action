@@ -1,0 +1,32 @@
+diff --git a/fs/susfs.c b/fs/susfs.c
+--- a/fs/susfs.c
++++ b/fs/susfs.c
+@@ -2063,8 +2063,28 @@
+ 	return 0;
+ }
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
++static int susfs_handle_sdcard_event(struct fsnotify_group *group,
++		struct inode *inode, u32 mask, const void *data, int data_type,
++		const unsigned char *name, u32 cookie,
++		struct fsnotify_iter_info *iter_info)
++{
++	struct qstr file_name;
++
++	if (!name)
++		return 0;
++	file_name.name = name;
++	file_name.len = strnlen((const char *)name, 8);
++	return susfs_handle_sdcard_inode_event(NULL, mask, inode, NULL,
++					      &file_name, cookie);
++}
++#endif
+ static const struct fsnotify_ops fsnotify_ops = {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
++	.handle_event = susfs_handle_sdcard_event,
++#else
+ 	.handle_inode_event = susfs_handle_sdcard_inode_event,
++#endif
+ };
+ 
+ static int add_mark_on_inode(struct inode *inode, u32 mask,

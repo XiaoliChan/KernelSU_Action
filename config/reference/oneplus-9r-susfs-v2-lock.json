@@ -19,5 +19,21 @@
       "KPM"
     ]
   },
-  "status": "source pinned; 4.19 port not yet build/device validated"
+  "status": "native v2.4 foundation port passes offline integration and lifecycle tests; kernel build/device validation pending",
+  "stage": {
+    "enabled": [
+      "SUS_MOUNT",
+      "SPOOF_UNAME",
+      "ENABLE_LOG",
+      "SPOOF_CMDLINE_OR_BOOTCONFIG"
+    ],
+    "pending": [
+      "SUS_PATH",
+      "SUS_KSTAT",
+      "OPEN_REDIRECT",
+      "SUS_MAP",
+      "PRIORITY_UID_FILTER"
+    ],
+    "legacy_backend": false
+  }
 }

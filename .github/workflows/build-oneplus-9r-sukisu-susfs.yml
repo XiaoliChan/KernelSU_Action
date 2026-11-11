@@ -1,4 +1,4 @@
-name: Build OnePlus 9R (SukiSU ADB-root + KPM + SUSFS)
+name: Build OnePlus 9R (ADB-root + KPM + SUSFS v2.4 foundation)
 
 on:
   workflow_dispatch:
@@ -106,15 +106,8 @@ jobs:
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/002-susfs-old-kernel-sids.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/001-preinit-layout.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/002-nonsusfs-werror.patch
-          # Keep the proven base hooks; add SUSFS separately with no fuzz.
-          cp patches/oneplus-9r/fs/*.c "$KERNEL_DIR/fs/"
-          cp patches/oneplus-9r/include/linux/sus*.h "$KERNEL_DIR/include/linux/"
-          patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < patches/oneplus-9r/50_add_susfs_in_kernel-4.19.patch
-          patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < patches/oneplus-9r/susfs_hooks/kernel-4.19-uid.patch
-          test "$(grep -c 'ksu_handle_setresuid(target_uid,' "$KERNEL_DIR/kernel/sys.c")" = 1
-          sha256sum patches/oneplus-9r/50_add_susfs_in_kernel-4.19.patch \
-            patches/oneplus-9r/susfs_hooks/*.patch patches/oneplus-9r/fs/*.c \
-            patches/oneplus-9r/include/linux/sus*.h > "$WORKSPACE/diagnostics/susfs-inputs.sha256"
+          # Install only the hash-locked native v2 core and reviewed 4.19 port.
+          bash scripts/prepare-susfs-v2.sh
           sha256sum patches/oneplus-9r/minimal_hooks/*.patch \
             patches/oneplus-9r/ksu_fixes/sukisu-ultra/*.patch \
             patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/*.patch \
@@ -128,8 +121,9 @@ jobs:
           . scripts/build.sh
           # This pinned fork has no CONFIG_KSU_MANUAL_HOOK symbol. Its manual
           # entry points are wired by the explicit patch above; set only the
-          # Kconfig symbols that it actually declares. SUSFS defaults to y!
-          kconf_set_many "$DEFCONFIG_PATH" CONFIG_KSU=y CONFIG_KSU_SUSFS=y CONFIG_KSU_SUSFS_SUS_PATH=y CONFIG_KSU_SUSFS_SUS_MOUNT=y CONFIG_KSU_SUSFS_SUS_KSTAT=y CONFIG_KSU_SUSFS_SPOOF_UNAME=y CONFIG_KSU_SUSFS_ENABLE_LOG=y CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y CONFIG_KSU_SUSFS_OPEN_REDIRECT=y CONFIG_KSU_SUSFS_SUS_MAP=n \
+          # Kconfig symbols that it actually declares. This first v2 stage
+          # isolates mount lifecycle; other VFS features are not yet enabled.
+          kconf_set_many "$DEFCONFIG_PATH" CONFIG_KSU=y CONFIG_KSU_SUSFS=y CONFIG_KSU_SUSFS_SUS_PATH=n CONFIG_KSU_SUSFS_SUS_MOUNT=y CONFIG_KSU_SUSFS_SUS_KSTAT=n CONFIG_KSU_SUSFS_SPOOF_UNAME=y CONFIG_KSU_SUSFS_ENABLE_LOG=y CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=n CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y CONFIG_KSU_SUSFS_OPEN_REDIRECT=n CONFIG_KSU_SUSFS_SUS_MAP=n \
             CONFIG_KSU_FEATURE_ADBROOT=y CONFIG_KSU_DEBUG=n CONFIG_KPM=y
           export PATH="$CLANG_PATH:$PATH"
           unset DISABLE_LTO

@@ -1,0 +1,36 @@
+diff --git a/kernel/manager/pkg_observer.c b/kernel/manager/pkg_observer.c
+--- a/kernel/manager/pkg_observer.c
++++ b/kernel/manager/pkg_observer.c
+@@ -21,7 +21,7 @@
+         return;
+     track_throne(false);
+     // Renew the priority uid bitmap filter
+-#ifdef CONFIG_KSU_SUSFS
++#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
+     susfs_parse_priority_app_strings();
+ #endif
+ }
+@@ -36,7 +36,7 @@
+     struct callback_head *cb;
+ 
+     // Renew the getpriority uid bitmap filter
+-#ifdef CONFIG_KSU_SUSFS
++#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
+     susfs_parse_priority_app_strings();
+ #endif
+ 
+diff --git a/kernel/supercall/dispatch.c b/kernel/supercall/dispatch.c
+--- a/kernel/supercall/dispatch.c
++++ b/kernel/supercall/dispatch.c
+@@ -474,9 +474,11 @@
+             susfs_add_sus_map(arg);
+             return 0;
+ #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
++#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
+         case CMD_SUSFS_SET_PRIORITY_UID_FILTER:
+             susfs_set_priority_uid_filter(arg);
+             return 0;
++#endif
+         case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING:
+             susfs_set_avc_log_spoofing(arg);
+             return 0;

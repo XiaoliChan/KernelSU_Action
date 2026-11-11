@@ -123,7 +123,7 @@ class ControlConfigTests(unittest.TestCase):
         self.assertIn('DISABLE_CC_WERROR=false', profile)
         self.assertNotIn('-Wno-error', profile)
 
-    def test_susfs_keeps_combined_root_and_disables_inert_map_option(self):
+    def test_susfs_v2_stage_keeps_combined_root_and_isolates_mount_lifecycle(self):
         kpm = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-kpm-overrides.json').read_text())
         expected = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-susfs-overrides.json').read_text())
         self.assertTrue(all(expected[k] == v for k, v in kpm.items()))
@@ -136,6 +136,11 @@ class ControlConfigTests(unittest.TestCase):
             self.assertIn(flag, commands)
         self.assertNotIn('action-gh-release', str(wf))
         self.assertNotIn('scripts/patches.sh all', commands)
+        self.assertIn('scripts/prepare-susfs-v2.sh', commands)
+        self.assertNotIn('50_add_susfs_in_kernel-4.19.patch', commands)
+        self.assertNotIn('cp patches/oneplus-9r/fs/', commands)
+        for flag in ('SUS_PATH', 'SUS_KSTAT', 'OPEN_REDIRECT', 'HIDE_KSU_SUSFS_SYMBOLS'):
+            self.assertIn('CONFIG_KSU_SUSFS_' + flag + '=n', commands)
         minimal = (ROOT / 'patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch').read_text()
         extra = (ROOT / 'patches/oneplus-9r/susfs_hooks/kernel-4.19-uid.patch').read_text()
         legacy = (ROOT / 'patches/oneplus-9r/kernel_hooks/kernel-4.19-sukisu-ultra.patch').read_text()
