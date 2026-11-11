@@ -144,3 +144,9 @@ vfs_create_mount: 0x0049f7a8 .. 0x0049f807
 ```
 
 这是**同一个**内核中的 ADB-root + KPM + SUSFS，不是分散的互斥镜像。仍需区分能力验证与完整覆盖：KPM 按授权只测 probe/version/模块数；SUSFS 版本为 4.19 原生实现的 v2 兼容层，并非全部上游 v2 功能。未改应用授权、未安装新模块、未更改全局 SELinux enforcing；临时显示设置已恢复。组合产物只在 Actions Artifacts 中，未自动新增 Release。
+
+### 后续：用户授权永久刷入组合版
+
+用户在临时验证完成后明确要求永久刷入。重新确认 OnePlus9R、槽位 a、候选与回退镜像哈希后，执行 `fastboot flash boot_a boot.img` 并正常重启；没有再次使用 `fastboot boot`。
+
+重启后 `boot_completed=1`、完整构建身份匹配，`boot_a` 回读 SHA256 为 `3527d5df361ebdc31535df986d107103cc80164d662039d5a7cea3d5e227fc56`，与已验证组合镜像完全一致。ADB-root 为 enabled/UID 0，KPM available/ABI 2/loader 3584/模块数 0，SUSFS 为 true/v1.5.9-v2compat。**当前永久安装的是三项组合版，不再是临时启动或 ADB-root-only。** 旧 ADB-root 和 minimal 镜像仍作为回退备份保留；未动 boot_b/vbmeta，未加载 KPM 模块，未新增 Release。
