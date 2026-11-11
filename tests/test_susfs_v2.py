@@ -58,6 +58,24 @@ class SusfsV2Tests(unittest.TestCase):
         self.assertIn('+#include <linux/cred.h>', compat)
         self.assertIn('+#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER', compat)
 
+    def test_port_does_not_silently_change_the_working_control_baseline(self):
+        def profile(name):
+            return dict(re.findall(r'^([A-Z][A-Z_0-9]*)[=:](.*)$',
+                                   (ROOT / 'config' / name).read_text(), re.M))
+        control = profile('oneplus-9r-lineage-sukisu-kpm.env')
+        port = profile('oneplus-9r-lineage-sukisu-susfs.env')
+        permitted = {'CONFIG_ENV', 'KERNEL_CONFIG', 'ENABLE_SUSFS',
+                     'SUSFS_LOCAL_DIR', 'EXTRA_DEFCONFIG'}
+        changed = {key for key in control.keys() | port.keys()
+                   if control.get(key) != port.get(key)}
+        self.assertEqual(changed, permitted)
+        self.assertEqual(port['ENABLE_KPM'], 'true')
+        self.assertEqual(port['DISABLE_CC_WERROR'], 'false')
+        self.assertEqual(port['DISABLE_LTO'], 'false')
+        lock = json.loads((ROOT / 'config/reference/oneplus-9r-susfs-v2-lock.json').read_text())
+        self.assertEqual(port['KSU_REF'], lock['baseline']['sukisu'])
+        self.assertEqual(lock['baseline']['compiler_build'], 15071444)
+
     def test_mount_ids_borrowed_owned_inheritance_and_error_unwind(self):
         ns = new_side(PORT / '50_add_susfs_in_kernel-4.19.patch', 'fs/namespace.c')
         funcs = ''.join(function(ns, name) for name in (
