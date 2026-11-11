@@ -203,3 +203,28 @@ boot SHA256:  9fdd2f2826dfc35f65c2303b1de3c9e8e70a5e8b7fc69cc0bc4f23edb1390396
 ```
 
 已向用户询问临时启动及重复 B 站启动/退出验证，**尚未收到本轮许可，尚未上机，不得声称解决了实机卡死**。永久 boot 继续保留已确认正常的无 SUSFS 组合 `c1254979...`，也没有新增 Release。
+
+### v2.4 实机反馈与 memcg 告警调查
+
+上述候选后来经用户明确授权执行 `fastboot boot`：完整构建身份匹配，ADB-root、KPM（ABI 2、0 模块）和 SUSFS v2.4.0 查询正常。官方管理器 Working，UID 10118、Seccomp 0、持有 `ksu_driver` FD。五轮 B 站冷启动、返回、强停退出全部有响应，没有复现旧 IDA 清理错误；用户进一步确认 App 正常、游戏运行约五分钟稳定。永久 `boot_a` 仍为无 SUSFS 的 `c1254979...`，没有写入此候选。
+
+但本轮启动有一条独立的 memcg 告警，不能写成“日志完全无错误”：
+
+```text
+uptime 140.804s, ThreadPoolSingl, TID 5886
+mem_cgroup_update_lru_size(..., 1, -1): lru_size -1
+release_pages -> free_pages_and_swap_cache -> tlb_flush_mmu
+-> exit_mmap -> mmput -> do_exit
+```
+
+核对固定内核源码 `078365e5318d` 后已确认：
+
+- `lru=1` 是 `LRU_ACTIVE_ANON`；在进程退出释放页时，某个 memcg 的 LRU 页计数出现下溢。这不是之前的 mount ID 释放错误。
+- `mm/memcontrol.c` 使用 **WARN_ONCE**；同一调用点后续事件可能不再打印。因此“五轮后没有新增同类日志”不等于“没有再次触发”。代码在条件成立时会把负计数归零；当前 `CONFIG_DEBUG_VM` 未开启，现场 `panic_on_warn=0`，这次未发生 panic。
+- 同一墙钟时间，AMS 在 13:06:56.761 因 `excessive binder traffic during cached` 终止 Chrome 后台服务 PID 5841，随后有进程死亡/binder 释放记录。WARN 中的 TID 5886 与该 TGID 的独立映射未恢复，故只记录时间关联，不断言 Chrome 导致该 bug。
+- v2 基础接入补丁没有改 `mm/memcontrol.c`、`mm/swap.c` 或 `mm/memory.c`。这不能排除间接触发；现有无 SUSFS 对照日志未见此告警，但观察时长/工作负载不同，也不足以归因。
+- 栈中的匿名返回地址落在 KernelPatch 运行区域；固定 KP 源码存在 `do_exit` 包装，用于回收自身 task-extension 槽。出现该栈帧不等于 KPM 是根因。
+
+当前仅做只读调查：没有清除 WARN_ONCE 状态、关闭 MEMCG/告警、改模块、重启或写内核。未照搬检索命中的现代 folio/大整数溢出修复，因为版本和触发条件不吻合。下一步需匹配负载的对照或独立诊断计数，才能确定实际发生次数与根因；短时游戏正常是正向反馈，不是长期稳定性证明。
+
+源码依据：[计数与 WARN_ONCE 分支](https://github.com/LineageOS/android_kernel_oneplus_sm8250/blob/078365e5318de0a30a41f9707070b610bcd20f13/mm/memcontrol.c#L1171-L1202)、[WARN_ONCE 宏](https://github.com/LineageOS/android_kernel_oneplus_sm8250/blob/078365e5318de0a30a41f9707070b610bcd20f13/include/asm-generic/bug.h)、[释放页路径](https://github.com/LineageOS/android_kernel_oneplus_sm8250/blob/078365e5318de0a30a41f9707070b610bcd20f13/mm/swap.c#L718-L799)。本地证据保存在 `/tmp/kernel-debug/analysis/memcg-debug/`。
