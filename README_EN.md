@@ -2,6 +2,8 @@
 
 # KernelSU Action
 
+> **9R stability correction (2026-11-11):** SUSFS build `42876653991` later caused whole-device freezes when opening third-party apps. Boot/manager/API checks did not establish daily-use stability; this combination is not recommended pending repair. The user confirmed that the **ADB-root + KPM, without SUSFS** control runs Bilibili normally. A duplicated SUSFS mount-ID backup rewrite has been reproduced; a fix and app-lifecycle validation remain pending. See the [investigation](docs/oneplus-9r-boot-investigation.md).
+
 ## OnePlus 9R automatic releases
 
 **Current device validation track:** minimal and ADB-root boot successfully on LineageOS `24.0-20261107`; ADB-root is permanently installed and its boot partition read-back hash is verified. `build-oneplus-9r-sukisu-kpm.yml` adds only `CONFIG_KPM=y` to that reference configuration and compiler, building the real payload from pinned ABI-v2 KernelPatch source. It includes no SUSFS or KPM modules and does not publish unverified candidates. Test with `fastboot boot`; the legacy release workflows below are not a substitute for this staged validation.

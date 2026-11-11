@@ -1,5 +1,7 @@
 # OnePlus 9R 实机启动故障定位
 
+> **最新状态更正（2026-11-11 上午）**：下文“三项组合通过”仅是当时的开机、管理器和接口测试结果，不能当作第三方 App 稳定性结论。用户随后报告打开 B 站/公主连结会整机卡死；无 SUSFS 的 ADB-root + KPM 对照已恢复正常。SUSFS 组合暂停推荐，详情见文末。
+
 ## 已确认事实
 
 用户报告 SukiSU-Ultra 内核刷入后停在一加 Logo，恢复已备份的 `boot_a` 后可以正常开机。Recovery 可以启动，但 pstore 为空，`/proc/last_kmsg` 不存在。最初没有 panic 栈，不能仅凭源码猜测根因；后续已在用户原始失败镜像的机器码中确认挂载路径的确定缺陷，见下文。
@@ -150,3 +152,34 @@ vfs_create_mount: 0x0049f7a8 .. 0x0049f807
 用户在临时验证完成后明确要求永久刷入。重新确认 OnePlus9R、槽位 a、候选与回退镜像哈希后，执行 `fastboot flash boot_a boot.img` 并正常重启；没有再次使用 `fastboot boot`。
 
 重启后 `boot_completed=1`、完整构建身份匹配，`boot_a` 回读 SHA256 为 `3527d5df361ebdc31535df986d107103cc80164d662039d5a7cea3d5e227fc56`，与已验证组合镜像完全一致。ADB-root 为 enabled/UID 0，KPM available/ABI 2/loader 3584/模块数 0，SUSFS 为 true/v1.5.9-v2compat。**当前永久安装的是三项组合版，不再是临时启动或 ADB-root-only。** 旧 ADB-root 和 minimal 镜像仍作为回退备份保留；未动 boot_b/vbmeta，未加载 KPM 模块，未新增 Release。
+
+### 第三方 App 整机卡死回归与无 SUSFS 对照
+
+用户在公司通过虚拟机直连 ADB，报告打开 B 站/公主连结会整机卡死。未再连接家中 SSH 主机。先清理可重建工具链、离线试验镜像和经 ZIP 哈希核对的裸 Image 副本，记录移除/去重约 1.56 GiB；保留原始 dump、所有有效回退 boot、当前镜像及日志。
+
+当前组合的真实 dmesg 有大量 `ida_free called for id=... which is not allocated`，例如 481、328；调用链为 `cleanup_mnt -> ida_free -> ida_remove`。运行时 `kernel_umount` 功能为 disabled，因此不能简单归因为用户开启了该开关。
+
+检查 `clone_mnt()` 的 SUSFS 补丁发现两段连续的 zygote ID 重排逻辑：第一段保存真实 ID 后改写可见 ID，第二段又把伪造后的 ID 写入备份；命名空间复制路径还可能再次覆盖备份。使用实际补丁片段编译的离线复现结果：
+
+```text
+copy_namespace=0 allocated_id=300 visible_id=101 cleanup_id=101 correct=false
+copy_namespace=1 allocated_id=300 visible_id=101 cleanup_id=101 correct=false
+```
+
+这证实挂载 ID 生命周期存在缺陷，与实机清理告警一致；仍不能仅凭它排除其他 SUSFS/模块交互问题。用户批准临时启动无 SUSFS 的组合对照 `42860708191`：ADB-root、KPM 保留，SUSFS=false。B 站 `com.bilibili.app.in` 冷启动 1106 ms，后续 ADB 连续响应，没有再次出现 IDA 清理错误；用户手动滑动/返回确认不再整机卡死。随后用户明确授权永久回退至此版本。**SUSFS 本身尚未修复，不能将回退恢复可用写成 SUSFS 修复成功。**
+
+版本核对也应区分分支：官方 `kernel-4.19` 提交 `001e69919c6271f690fd00b17e4c721c9e599152` 的头文件仍为 v1.5.5；`gki-android12-5.10` 提交 `5436438b5cc77f146e04f71070da153dabe17a9d` 为 v2.4.0。v1.5.12 确实存在，但本项目 v1.5.9-v2compat 是自有兼容整合，不是完整新版；升级须验证 4.19 API、ID 所有权与 App 启动/退出路径，不能只改版本字符串。
+
+永久回退已完成：正常重启后 `boot_a` 回读 SHA256 为 `c125497903c575309506468c18eae915a38b70e22eb072b1dfabd978176e706a`，对应 `42860708191` 的 ADB-root + KPM（无 SUSFS）。完整构建时间匹配 `Tue Nov 10 17:10:32 UTC 2026`，ADB-root 为 UID 0/enabled，KPM available/ABI 2，SUSFS=false。此前的三项组合不再是当前永久内核。
+
+### 按用户要求切换到最新上游基线
+
+用户明确要求以最新 SUSFS 为基线再 debug，而非继续沿用旧版拼接层。已获取并固定上游普通分支 `gki-android12-5.10` 的 **v2.4.0** 提交 `5436438b5cc77f146e04f71070da153dabe17a9d`，锁文件为 `config/reference/oneplus-9r-susfs-v2-lock.json`，包含核心实现、两个头文件和内核补丁的 SHA256。
+
+源码核对发现最新版不再使用旧 `susfs_mnt_id_backup` 重排/备份机制；挂载 ID 使用原 IDA，借用 ID 的 KSU unshare 挂载通过独立标志跳过释放。这是应采用新基线的重要实质变化，而不只是版本号变大。
+
+控制变量保持：内核源码 `078365e5318d`、Clang build 15071444、SukiSU `1cfa5734`、KernelPatch `1c5b6089` 和已通过的 ADB-root + KPM 配置不变。只移植最新 SUSFS 所需的 4.19 API/挂载/VFS 接入，不混入旧 1.5.9 核心或用空实现冒充功能。
+
+当前进度仅为上游锁定和离线适配预检：直接移植时 2 个文件 clean apply、15 个文件存在拒绝块，另有前端 hook/SELinux/bootconfig 路径需单独对照；**尚未完成 4.19 移植、编译或实机验证**。这不是新版本存在已知卡死的证据，只说明 GKI 5.10 补丁不是 4.19 的直接替换包。旧实验工作流不能当成最新 v2.4 构建入口。
+
+后续门禁：最新核心/头文件来源校验 → 精确 4.19 接入补丁 → ID 分配/clone/unshare/释放生命周期回归 → 严格配置与编译检查 → 经用户确认后临时启动 → 管理器/Root/KPM/SUSFS 与 B 站/公主连结启动、返回、退出、重复开启、锁屏恢复测试。未通过前不覆盖当前日用无 SUSFS 版本。

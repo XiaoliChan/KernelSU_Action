@@ -1,0 +1,23 @@
+{
+  "upstream": "https://gitlab.com/simonpunk/susfs4ksu.git",
+  "branch": "gki-android12-5.10",
+  "commit": "5436438b5cc77f146e04f71070da153dabe17a9d",
+  "version": "v2.4.0",
+  "files": {
+    "kernel_patches/fs/susfs.c": "eb192f62a9ec70b0c00b0e800d5734a7e51f357bb3d001e10d1e3be9f76e9b0d",
+    "kernel_patches/include/linux/susfs.h": "1dbe8e9d31211bf07eacf5c28054b7f3bb27d034565b88f1ddff371c356c4dd6",
+    "kernel_patches/include/linux/susfs_def.h": "cb441cb566d009bce20c1f4ce43fa10ce3472daafd0f37e144cdf1be87b3f88e",
+    "kernel_patches/50_add_susfs_in_gki-android12-5.10.patch": "f17439344475ae8ae91b80c46a14e87c475db2a6a396cf6adfe142f1ee6a8b74"
+  },
+  "baseline": {
+    "kernel": "078365e5318de0a30a41f9707070b610bcd20f13",
+    "compiler_build": 15071444,
+    "sukisu": "1cfa57340590971cba7521ed536da8ebbedc5f0a",
+    "kernelpatch": "1c5b608916357ac86a94cc736e235db1fac4a29d",
+    "ksu_features": [
+      "ADB-root",
+      "KPM"
+    ]
+  },
+  "status": "source pinned; 4.19 port not yet build/device validated"
+}

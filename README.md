@@ -2,6 +2,8 @@
 
 # KernelSU Action
 
+> **9R 稳定性更正（2026-11-11）**：SUSFS 组合构建 `42876653991` 后续出现第三方 App 启动时整机卡死；先前的开机/管理器/接口验证不足以证明日常稳定性。暂停推荐该组合。无 SUSFS 的 **ADB-root + KPM** 对照已由用户确认 B 站正常。已复现 SUSFS 挂载 ID 备份重复覆盖问题，尚待修复和 App 场景验证，详见[故障记录](docs/oneplus-9r-boot-investigation.md)。
+
 用 GitHub Actions 为 Android 内核集成 KernelSU（及其各种分支）、SUSFS 与常用补丁，并产出可刷入的 AnyKernel3 包。
 
 需要一定的内核与 Android 基础知识。
