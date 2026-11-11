@@ -95,7 +95,7 @@ class ControlConfigTests(unittest.TestCase):
             self.assertIn("steps.compile.outcome == 'failure'", save['if'])
             self.assertTrue(save['continue-on-error'])
             compile_step = next(s for s in job['steps'] if s.get('id') == 'compile')
-            self.assertEqual(compile_step['run'], 'bash scripts/build.sh compile')
+            self.assertIn('bash scripts/build.sh compile', compile_step['run'])
             self.assertIn('ENABLE_CCACHE=true', (ROOT / 'config' / profile_name).read_text())
 
     def test_adbroot_stage_adds_only_adbroot_to_minimal(self):

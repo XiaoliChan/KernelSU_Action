@@ -136,7 +136,18 @@ jobs:
 
       - name: Compile SukiSU with ADB-root, KPM and SUSFS
         id: compile
-        run: bash scripts/build.sh compile
+        run: |
+          # Catch 4.19 API errors in the changed objects before waiting for
+          # the unrelated vendor drivers. This uses the same args/compiler.
+          . scripts/build.sh
+          export PATH="$CLANG_PATH:$PATH"
+          args=$(make_args)
+          # shellcheck disable=SC2086
+          make -C "$KERNEL_DIR" -j"$(nproc)" CC="ccache clang" $args \
+            fs/susfs.o fs/namespace.o fs/proc/fd.o fs/stat.o fs/statfs.o \
+            fs/super.o fs/proc_namespace.o fs/proc/cmdline.o kernel/sys.o \
+            security/selinux/avc.o drivers/kernelsu/ksu_main.o
+          bash scripts/build.sh compile
 
       - name: Verify final config and output
         run: |

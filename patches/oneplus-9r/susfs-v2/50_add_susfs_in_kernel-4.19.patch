@@ -679,6 +679,18 @@ diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
  	return mounts_open_common(inode, file, show_vfsstat);
  }
  
+diff --git a/fs/stat.c b/fs/stat.c
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -21,6 +21,8 @@
+ #include <linux/uaccess.h>
+ #include <asm/unistd.h>
+ 
++#include "internal.h"
++
+ /**
+  * generic_fillattr - Fill in the basic attributes from the inode struct
+  * @inode: Inode to use as the source
 diff --git a/fs/statfs.c b/fs/statfs.c
 --- a/fs/statfs.c
 +++ b/fs/statfs.c

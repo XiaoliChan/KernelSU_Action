@@ -50,6 +50,7 @@ class SusfsV2Tests(unittest.TestCase):
         patch = (PORT / '50_add_susfs_in_kernel-4.19.patch').read_text()
         self.assertNotIn('susfs_mnt_id_backup', patch)
         self.assertNotIn('susfs_mnt_id_ida', patch)
+        self.assertIn('#include "internal.h"', new_side(PORT / '50_add_susfs_in_kernel-4.19.patch', 'fs/stat.c'))
         prep = (ROOT / 'scripts/prepare-susfs-v2.sh').read_text()
         self.assertIn('test ! -e "$KERNEL_DIR/fs/susfs_compat.c"', prep)
         self.assertIn('--fuzz=0', prep)
