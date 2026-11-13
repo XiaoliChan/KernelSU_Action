@@ -7,8 +7,9 @@ ZeroMount remains paused on `dev-zeromount`; it is not part of this branch.
 No bootloader lock/unlock command, partition write, property mutation,
 attestation-key operation or application hook is performed by this work.
 
-During this research turn ADB had no connected device. The findings below
-separate earlier runtime observations from current offline source inspection.
+The initial offline pass had no connected ADB device. A follow-up read-only
+collection on 2026-11-13 after the OTA/kernel restoration is recorded below.
+The findings separate runtime observations from offline source inspection.
 Nothing here establishes a new Play Integrity result or an app-level bypass.
 
 ## Previously observed facts
@@ -29,6 +30,29 @@ attribute them to SUSFS, microG or a module without checking runtime provenance.
 
 The KernelSU pin `1cfa5734` is a kernel-only revision (top-level `kernel/` and
 `uapi/`). It is not proof of which manager/userspace implementation is installed.
+
+### Follow-up after the 2026-11-13 OTA
+
+The allowlisted collector ran at **2026-11-13 13:28:23 UTC** through the home
+host, against the updated system and restored stable kernel. Results:
+
+| Interface | Verified-boot state | Other lock-related observation |
+| --- | --- | --- |
+| Android properties | `green` | `vbmeta.device_state=locked`; `flash.locked` empty/unset |
+| `/proc/cmdline` | `orange` | No other allowlisted lock field observed |
+| Device-tree chosen `bootargs` | `orange` | Same through the proc device-tree alias |
+| `/proc/bootconfig` | unavailable | No inference of hidden or unlocked state |
+
+This confirms a **local cross-interface inconsistency**, not just a possible
+source gap. It does not identify the property writer or distinguish an unset
+SUSFS replacement from a replacement that itself contains `orange`.
+
+Collection context was ADB UID 0. `/proc/cmdline` was mode 0444, labeled
+`proc_cmdline`; device-tree bootargs was mode 0444, labeled `sysfs`. DAC bits
+alone do not establish access from an ordinary Android app's SELinux domain.
+No app-sandbox read or hardware attestation was performed, and no values were
+changed. Runtime SUSFS advertised the cmdline feature, but that capability flag
+does not establish the contents of its active presentation buffer.
 
 ## Detection surfaces and evidence boundaries
 
@@ -93,8 +117,8 @@ private output. Matching local values always leave hardware state
 
 ## Next gates
 
-1. Reconnect ADB and collect a fresh shell baseline; compare with preserved
-   earlier observations without rebooting or altering values.
+1. Shell baseline collected after OTA; retain it for comparison without
+   rebooting or altering values.
 2. Determine the installed userspace/module version and where relevant
    property/cmdline settings come from. Do not read keyboxes or account data.
 3. Establish what an ordinary app can actually read, using a separate minimal
