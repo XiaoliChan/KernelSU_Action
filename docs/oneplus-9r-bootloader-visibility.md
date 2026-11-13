@@ -54,6 +54,37 @@ No app-sandbox read or hardware attestation was performed, and no values were
 changed. Runtime SUSFS advertised the cmdline feature, but that capability flag
 does not establish the contents of its active presentation buffer.
 
+### Ordinary app experiment (operator-approved; probe removed)
+
+A self-targeted instrumentation APK was compiled, signature-verified and checked
+to request **zero permissions**. It did not ask for root, network, storage or
+accessibility access. Actual execution: UID 10130, SELinux `untrusted_app`,
+Android API 37, target SDK 37, application `debuggable=false`.
+
+| Interface | Ordinary-app result |
+| --- | --- |
+| Properties via a same-sandbox `getprop` subprocess | `green` / `locked`; `flash.locked` remains empty |
+| `/proc/cmdline` | `permission_denied` |
+| Device-tree chosen `bootargs`, both paths | `permission_denied` |
+| `/proc/bootconfig` | unavailable |
+
+Thus the root-shell orange values are **not a demonstrated leak to this ordinary
+app sandbox**. Do not add a device-tree presentation hook solely to change a root
+shell's output. This result does not cover privileged/system apps, root-granted
+apps, every SDK or hardware/server attestation. The probe did not request an
+attestation. It was uninstalled and package absence was checked afterward.
+
+The installed Play Integrity Fix service script contains commands requesting
+green/locked and related properties. Its `resetprop_if_diff` helper explicitly
+skips empty properties. This explains why that script need not create
+`ro.boot.flash.locked`; emptiness alone is not proof of an unlocked device. It
+is a source-level candidate for the presented values, not a trace proving it
+was their only writer. Inspection was limited to relevant script/metadata;
+no module settings were changed and no attestation material was read.
+
+Probe source and reproducible build notes:
+[`tests/boot_visibility_app`](../tests/boot_visibility_app).
+
 ## Detection surfaces and evidence boundaries
 
 | Surface | What to inspect | What it cannot prove |
@@ -121,8 +152,8 @@ private output. Matching local values always leave hardware state
    rebooting or altering values.
 2. Determine the installed userspace/module version and where relevant
    property/cmdline settings come from. Do not read keyboxes or account data.
-3. Establish what an ordinary app can actually read, using a separate minimal
-   diagnostic client rather than inferring it from a root shell.
+3. Ordinary-app baseline completed as above. Extend to a concrete detector only
+   when needed; do not generalize one sandbox result to every security SDK.
 4. For any concrete app rejection, identify the decisive check before editing
    anything. Local file/property consistency and server/hardware attestation
    require separate conclusions.

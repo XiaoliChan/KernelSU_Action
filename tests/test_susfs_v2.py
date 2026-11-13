@@ -30,6 +30,47 @@ def function(text, name):
 
 
 class SusfsV2Tests(unittest.TestCase):
+    def test_reserved_flag_namespaces_fit_arm64_without_collisions(self):
+        header = (PORT / 'upstream/include/linux/susfs_def.h').read_text()
+        # Thread flags and address_space flags are distinct namespaces.
+        # Preserve the pinned port's high-bit allocation without conflating them.
+        for prefix in ('TIF_', 'AS_FLAGS_'):
+            flags = dict(re.findall(r'^#define\s+(' + prefix + r'\w+)\s+(\d+)\b', header, re.M))
+            self.assertTrue(flags)
+            bits = [int(value) for value in flags.values()]
+            self.assertEqual(len(bits), len(set(bits)), flags)
+            self.assertTrue(all(32 <= bit < 64 for bit in bits), flags)
+
+    def test_app_uid_classification_includes_secondary_users(self):
+        source = r'''
+#include <assert.h>
+#include <stdbool.h>
+static unsigned int uid;
+typedef struct { unsigned int val; } kuid_t;
+static kuid_t current_uid(void) { return (kuid_t){uid}; }
+'''
+        source += function((PORT / 'upstream/include/linux/susfs_def.h').read_text(),
+                           'susfs_is_current_app_uid')
+        source += r'''
+int main(void) {
+    unsigned int system[] = {0, 1000, 2000, 9999, 100000, 101000, 102000, 209999};
+    unsigned int apps[] = {10000, 10123, 19999, 90000, 110000, 110123, 190000, 210123};
+    for (unsigned int i=0;i<sizeof(system)/sizeof(system[0]);i++) {
+        uid=system[i]; assert(!susfs_is_current_app_uid());
+    }
+    for (unsigned int i=0;i<sizeof(apps)/sizeof(apps[0]);i++) {
+        uid=apps[i]; assert(susfs_is_current_app_uid());
+    }
+    return 0;
+}
+'''
+        self.compile_run(source)
+
+    def test_d_path_error_pointer_check_remains_present(self):
+        fd_patch = new_side(PORT / '50_add_susfs_in_kernel-4.19.patch', 'fs/proc/fd.c')
+        self.assertIn('if (IS_ERR(dpath))', fd_patch)
+        self.assertNotIn('if (!dpath)', fd_patch)
+
     def compile_run(self, source):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp)

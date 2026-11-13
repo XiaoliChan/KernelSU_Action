@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.kernelstudy.bootvisibilityprobe" android:versionCode="1" android:versionName="1.0">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="37" />
+    <!-- No uses-permission entries: no network, storage, accessibility or root. -->
+    <application android:label="Boot visibility probe" android:debuggable="false"
+        android:allowBackup="false" android:usesCleartextTraffic="false" />
+    <instrumentation android:name="org.kernelstudy.bootvisibilityprobe.Probe"
+        android:targetPackage="org.kernelstudy.bootvisibilityprobe"
+        android:functionalTest="true" />
+</manifest>
