@@ -27,6 +27,7 @@ cp "$PORT/upstream/include/linux/"*.h "$KERNEL_DIR/include/linux/"
 patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < "$PORT/001-core-4.19.patch"
 patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < "$PORT/50_add_susfs_in_kernel-4.19.patch"
 patch -d "$KERNEL_DIR/${KSU_DIR:-KernelSU}" -p1 --batch --fuzz=0 < "$PORT/002-ksu-optional-v2-features.patch"
+patch -d "$KERNEL_DIR/${KSU_DIR:-KernelSU}" -p1 --batch --fuzz=0 < "$PORT/003-sucompat-visibility-guards.patch"
 if grep -q 'susfs_mnt_id_backup\|susfs_mnt_id_ida' "$KERNEL_DIR/fs/namespace.c"; then
   echo 'Old SUSFS ID-rewrite/allocator code leaked into the v2 port' >&2
   exit 1
