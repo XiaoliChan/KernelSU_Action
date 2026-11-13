@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/Enginex0/Super-Builders",
+  "commit": "c2cb71614868fe742cbffee2b6f3126523432673",
+  "source_patch": "android12-5.4/SukiSU-Ultra/patches/60_zeromount-android12-5.4.patch",
+  "source_patch_sha256": "a707a6b67159773ccfa5bcfc7a31d70c1f0493a68dcfce00e139453b2070882c",
+  "files": {
+    "fs/zeromount.c": "a294c5c7a9c7fe14efa5b54db8137db836de79ee489de7fb02621ab3ecf5e311",
+    "include/linux/zeromount.h": "553dac69f05091ae5f947e371bfe19d2ee0dfe3aec98d4084a049dd6ae364e39"
+  },
+  "target_kernel_commit": "078365e5318de0a30a41f9707070b610bcd20f13",
+  "status": "stage 1 absolute-file core; full ZeroMount/module integration incomplete; not installed on device"
+}

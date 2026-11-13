@@ -1,0 +1,214 @@
+name: Build OnePlus 9R (experimental ZeroMount absolute-file core)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/oneplus9r-zeromount-experimental]
+    paths:
+      - '.github/workflows/build-oneplus-9r-sukisu-zeromount.yml'
+      - 'patches/oneplus-9r/zeromount/**'
+      - 'scripts/prepare-zeromount.sh'
+      - 'config/oneplus-9r-lineage-sukisu-zeromount.env'
+      - 'config/reference/oneplus-9r-sukisu-zeromount-overrides.json'
+      - 'config/reference/oneplus-9r-zeromount-lock.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oneplus-9r-sukisu-zeromount-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  susfs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      WORKSPACE: ${{ github.workspace }}/kernel_workspace
+      CONFIG_ENV: config/oneplus-9r-lineage-sukisu-zeromount.env
+      REFERENCE_KERNEL_COMMIT: 078365e5318de0a30a41f9707070b610bcd20f13
+      REFERENCE_CONFIG: ${{ github.workspace }}/config/reference/oneplus-9r-lineage-24.config
+      EXPECTED_OVERRIDES: ${{ github.workspace }}/config/reference/oneplus-9r-sukisu-zeromount-overrides.json
+      CCACHE_DIR: ${{ github.workspace }}/kernel_workspace/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve diagnostic profile
+        run: bash scripts/config.sh
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: true
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - name: Prepare runner
+        run: |
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ccache cpio curl device-tree-compiler flex git \
+            libelf-dev libssl-dev lz4 make python3 rsync unzip zip zstd libncurses-dev cmake zlib1g-dev
+          mkdir -p "$WORKSPACE/diagnostics"
+
+      - name: Restore compiler cache
+        id: ccache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: oneplus9r-llvm15071444-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            oneplus9r-llvm15071444-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Configure compiler cache
+        run: |
+          mkdir -p "$CCACHE_DIR"
+          ccache --max-size=3G
+          ccache --zero-stats
+
+      - name: Fetch reference compiler
+        run: bash scripts/toolchain.sh
+
+      - name: Fetch kernel source
+        run: bash scripts/source.sh
+
+      - name: Pin source and install working-device configuration
+        run: |
+          git -C "$KERNEL_DIR" fetch -q --depth=1 origin "$REFERENCE_KERNEL_COMMIT"
+          git -C "$KERNEL_DIR" checkout -q --detach "$REFERENCE_KERNEL_COMMIT"
+          git -C "$KERNEL_DIR" submodule update --init --recursive
+          test "$(git -C "$KERNEL_DIR" rev-parse HEAD)" = "$REFERENCE_KERNEL_COMMIT"
+          echo "f3a54b3a28fa78aab76c24ecc435ab56be5b6cf58cdb31c1ebcb5c8642ba32ba  $REFERENCE_CONFIG" | sha256sum -c -
+          # Save the clean upstream SCM suffix BEFORE integrating root. This
+          # preserves the stock vermagic instead of adding -dirty/-OnePlus9R.
+          (cd "$KERNEL_DIR" && bash scripts/setlocalversion --save-scmversion)
+          cp "$REFERENCE_CONFIG" "$KERNEL_DIR/arch/arm64/configs/$KERNEL_CONFIG"
+          cp "$EXPECTED_OVERRIDES" "$WORKSPACE/diagnostics/expected-overrides.json"
+          git -C "$KERNEL_DIR" rev-parse HEAD > "$WORKSPACE/diagnostics/kernel-commit.txt"
+          "$CLANG_PATH/clang" --version > "$WORKSPACE/diagnostics/compiler.txt"
+
+      - name: Install pinned SukiSU only
+        run: |
+          bash scripts/kernelsu.sh
+          test "$(git -C "$KERNEL_DIR/KernelSU" rev-parse HEAD)" = "$KSU_REF"
+          git -C "$KERNEL_DIR/KernelSU" rev-parse HEAD > "$WORKSPACE/diagnostics/ksu-commit.txt"
+
+      - name: Apply minimal hooks and required 4.19 compatibility
+        run: |
+          # Required even without SUSFS: kernel_umount.c calls path_umount.
+          bash scripts/patches.sh path_umount
+          test ! -e "$KERNEL_DIR/include/linux/static_call.h"
+          cp patches/oneplus-9r/include/linux/static_call.h "$KERNEL_DIR/include/linux/"
+          patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch
+          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/001-4.19-compat.patch
+          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/002-susfs-old-kernel-sids.patch
+          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/001-preinit-layout.patch
+          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/002-nonsusfs-werror.patch
+          # Install only the hash-locked native v2 core and reviewed 4.19 port.
+          bash scripts/prepare-susfs-v2.sh
+          bash scripts/prepare-zeromount.sh
+          sha256sum patches/oneplus-9r/minimal_hooks/*.patch \
+            patches/oneplus-9r/ksu_fixes/sukisu-ultra/*.patch \
+            patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/*.patch \
+            patches/oneplus-9r/include/linux/static_call.h > "$WORKSPACE/diagnostics/input-patches.sha256"
+
+      - name: Build pinned ABI-matched KernelPatch components
+        run: bash scripts/prepare-kpm.sh
+
+      - name: Generate and verify effective config before compiling
+        run: |
+          . scripts/build.sh
+          # This pinned fork has no CONFIG_KSU_MANUAL_HOOK symbol. Its manual
+          # entry points are wired by the explicit patch above. Keep SUSFS at
+          # the verified foundation; only the experimental absolute-file
+          # ZeroMount core is added. Its runtime always starts disabled.
+          kconf_set_many "$DEFCONFIG_PATH" CONFIG_KSU=y CONFIG_KSU_SUSFS=y CONFIG_ZEROMOUNT=y CONFIG_KSU_SUSFS_SUS_PATH=n CONFIG_KSU_SUSFS_SUS_MOUNT=y CONFIG_KSU_SUSFS_SUS_KSTAT=n CONFIG_KSU_SUSFS_SPOOF_UNAME=y CONFIG_KSU_SUSFS_ENABLE_LOG=y CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=n CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y CONFIG_KSU_SUSFS_OPEN_REDIRECT=n CONFIG_KSU_SUSFS_SUS_MAP=n \
+            CONFIG_KSU_FEATURE_ADBROOT=y CONFIG_KSU_DEBUG=n CONFIG_KPM=y
+          export PATH="$CLANG_PATH:$PATH"
+          unset DISABLE_LTO
+          args=$(make_args)
+          # shellcheck disable=SC2086
+          make -C "$KERNEL_DIR" CC=clang $args "$KERNEL_CONFIG"
+          cp "$KERNEL_DIR/out/.config" "$WORKSPACE/diagnostics/kernel.config"
+          python3 scripts/compare-kconfig.py "$REFERENCE_CONFIG" "$KERNEL_DIR/out/.config" \
+            --report "$WORKSPACE/diagnostics/config-comparison.json" --expected-overrides "$EXPECTED_OVERRIDES"
+
+      - name: Compile experimental ZeroMount core with ADB-root, KPM and SUSFS
+        id: compile
+        run: |
+          # Catch 4.19 API errors in the changed objects before waiting for
+          # the unrelated vendor drivers. This uses the same args/compiler.
+          . scripts/build.sh
+          export PATH="$CLANG_PATH:$PATH"
+          args=$(make_args)
+          # KSU includes generated/compile.h, normally generated by init's
+          # version object. Use its real Kbuild dependency, never a stub.
+          # shellcheck disable=SC2086
+          make -C "$KERNEL_DIR" -j"$(nproc)" CC="ccache clang" $args init/version.o
+          # shellcheck disable=SC2086
+          make -C "$KERNEL_DIR" -j"$(nproc)" CC="ccache clang" $args \
+            fs/zeromount.o fs/namei.o fs/susfs.o fs/namespace.o fs/proc/fd.o fs/stat.o fs/statfs.o \
+            fs/super.o fs/proc_namespace.o fs/proc/cmdline.o kernel/sys.o \
+            security/selinux/avc.o drivers/kernelsu/ksu_main.o
+          bash scripts/build.sh compile
+
+      - name: Verify final config and output
+        run: |
+          bash scripts/build.sh check
+          release=$(sed -n 's/^#define UTS_RELEASE "\(.*\)"/\1/p' "$KERNEL_DIR/out/include/generated/utsrelease.h")
+          test "$release" = '4.19.325-cip136-st20-perf-g078365e5318d'
+          printf '%s\n' "$release" > "$WORKSPACE/diagnostics/kernel-release.txt"
+          cp "$KERNEL_DIR/out/.config" "$WORKSPACE/diagnostics/kernel.config"
+          python3 scripts/compare-kconfig.py "$REFERENCE_CONFIG" "$KERNEL_DIR/out/.config" \
+            --report "$WORKSPACE/diagnostics/config-comparison.json" --expected-overrides "$EXPECTED_OVERRIDES"
+          cp "$KERNEL_DIR/out/arch/arm64/boot/Image" "$WORKSPACE/diagnostics/Image"
+
+      - name: Package diagnostic artifact (not a release)
+        run: bash scripts/package.sh anykernel3
+
+      - name: Check actual installer
+        run: |
+          python3 tests/check_anykernel_slots.py "$ANYKERNEL3_ZIP"
+          python3 tests/check_anykernel_devices.py "$ANYKERNEL3_ZIP"
+          cp "$ANYKERNEL3_ZIP" "$WORKSPACE/diagnostics/"
+
+      - name: Record compiler cache statistics
+        if: ${{ always() && (steps.compile.outcome == 'success' || steps.compile.outcome == 'failure') }}
+        run: |
+          ccache --show-stats | tee "$WORKSPACE/diagnostics/ccache-stats.txt"
+          {
+            echo '### ccache statistics'
+            echo '```text'
+            cat "$WORKSPACE/diagnostics/ccache-stats.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save compiler cache even after compile errors
+        if: ${{ always() && steps.ccache.outcome == 'success' && (steps.compile.outcome == 'success' || steps.compile.outcome == 'failure') }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
+
+      - name: Upload diagnostics even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnePlus9R-zeromount-core-${{ github.run_id }}
+          path: kernel_workspace/diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # No release job, no write token, and no publish_release input.

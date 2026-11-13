@@ -1,0 +1,64 @@
+diff --git a/fs/Kconfig b/fs/Kconfig
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -329,3 +329,13 @@
+ source "fs/unicode/Kconfig"
+ 
+ endmenu
++
++config ZEROMOUNT
++	bool "EXPERIMENTAL ZeroMount 4.19 absolute-file core"
++	depends on ARM64 && KSU && KSU_SUSFS
++	default n
++	help
++	  Experimental mountless replacement of existing absolute file paths.
++	  Runtime starts disabled. Control requires root and CAP_SYS_ADMIN.
++	  This initial port does not provide directory injection, metadata
++	  spoofing, permission bypass, or upstream ZeroMount-module compatibility.
+diff --git a/fs/Makefile b/fs/Makefile
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -137,3 +137,5 @@
+ obj-$(CONFIG_EROFS_FS)		+= erofs/
+ 
+ obj-$(CONFIG_KSU_SUSFS) += susfs.o
++
++obj-$(CONFIG_ZEROMOUNT) += zeromount.o
+diff --git a/arch/arm64/include/asm/thread_info.h b/arch/arm64/include/asm/thread_info.h
+--- a/arch/arm64/include/asm/thread_info.h
++++ b/arch/arm64/include/asm/thread_info.h
+@@ -94,6 +94,11 @@
+ #define TIF_SVE_VL_INHERIT	24	/* Inherit sve_vl_onexec across exec */
+ #define TIF_SSBD		25	/* Wants SSB mitigation */
+ #define TIF_TAGGED_ADDR		26	/* Allow tagged user addresses */
++#ifdef CONFIG_ZEROMOUNT
++/* 33..35 belong to native SUSFS; 36 is reserved for this pinned port. */
++#define TIF_ZEROMOUNT            36
++#endif
++
+ 
+ #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
+ #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
+diff --git a/fs/namei.c b/fs/namei.c
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -43,6 +43,9 @@
+ 
+ #include "internal.h"
+ #include "mount.h"
++#ifdef CONFIG_ZEROMOUNT
++#include <linux/zeromount.h>
++#endif
+ 
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/namei.h>
+@@ -205,6 +208,9 @@
+ 	result->uptr = filename;
+ 	result->aname = NULL;
+ 	audit_getname(result);
++#ifdef CONFIG_ZEROMOUNT
++	result = zeromount_getname_hook(result);
++#endif
+ 	return result;
+ }
+ 
