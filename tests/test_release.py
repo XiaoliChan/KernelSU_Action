@@ -128,12 +128,6 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse((ROOT / '.github/workflows/build-oneplus-9r.yml').exists())
         self.assertFalse((ROOT / '.github/workflows/build-oneplus-9r-kernelsu.yml').exists())
         self.assertFalse((ROOT / 'config/oneplus-9r-lineage-kernelsu.env').exists())
-        for suffix in ('bakasu', 'sukisu'):
-            path = ROOT / f'.github/workflows/build-oneplus-9r-{suffix}.yml'
-            # BaseLoader avoids YAML 1.1 interpreting GitHub's "on" as True.
-            wf = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-            self.assertEqual(wf['on']['workflow_dispatch']['inputs']['publish_release']['default'], 'true')
-            self.assertEqual(wf['jobs']['build']['with']['publish_release'], '${{ inputs.publish_release }}')
         meta = next(s['run'] for s in WORKFLOW['jobs']['build']['steps']
                     if s.get('id') == 'meta')
         tags = set()

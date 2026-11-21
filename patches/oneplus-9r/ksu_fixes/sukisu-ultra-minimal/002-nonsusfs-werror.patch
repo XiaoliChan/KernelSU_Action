@@ -11,29 +11,6 @@ diff --git a/kernel/preinit/common/preinit.h b/kernel/preinit/common/preinit.h
  #endif
  
  #ifndef KSU_NO_PREINIT
-diff --git a/kernel/manager/pkg_observer.c b/kernel/manager/pkg_observer.c
---- a/kernel/manager/pkg_observer.c
-+++ b/kernel/manager/pkg_observer.c
-@@ -21,7 +21,9 @@
-         return;
-     track_throne(false);
-     // Renew the priority uid bitmap filter
-+#ifdef CONFIG_KSU_SUSFS
-     susfs_parse_priority_app_strings();
-+#endif
- }
- 
- // Never scan from the fsnotify handler: fsnotify_mark_srcu and the rename's dir
-@@ -34,7 +36,9 @@
-     struct callback_head *cb;
- 
-     // Renew the getpriority uid bitmap filter
-+#ifdef CONFIG_KSU_SUSFS
-     susfs_parse_priority_app_strings();
-+#endif
- 
-     if (!(current->flags & PF_KTHREAD)) {
-         cb = kzalloc(sizeof(*cb), GFP_KERNEL);
 diff --git a/kernel/selinux/rules.c b/kernel/selinux/rules.c
 --- a/kernel/selinux/rules.c
 +++ b/kernel/selinux/rules.c
