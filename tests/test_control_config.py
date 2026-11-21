@@ -113,9 +113,11 @@ class ControlConfigTests(unittest.TestCase):
         self.assertNotIn('002-susfs-old-kernel-sids.patch', commands)
         self.assertIn('CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=n', commands)
         profiles = list((ROOT / 'config').glob('*.env'))
-        self.assertEqual([p.name for p in profiles], ['oneplus-9r-lineage-sukisu-susfs.env'])
+        self.assertEqual({p.name for p in profiles}, {
+            'oneplus-9r-lineage-sukisu-susfs.env', 'oneplus-9r-lineage-sukisu-zeromount.env'})
         device_workflows = list((ROOT / '.github/workflows').glob('build-oneplus-9r-*.yml'))
-        self.assertEqual([p.name for p in device_workflows], ['build-oneplus-9r-sukisu-susfs.yml'])
+        self.assertEqual({p.name for p in device_workflows}, {
+            'build-oneplus-9r-sukisu-susfs.yml', 'build-oneplus-9r-sukisu-zeromount.yml'})
 
 
 if __name__ == '__main__':

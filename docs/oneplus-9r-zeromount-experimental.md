@@ -8,8 +8,9 @@ the upstream ZeroMount module on the assumption that every ioctl feature works.
 The experimental version is deliberately `0x04190001`, rather than upstream `1`.
 
 The stable, device-verified ADB-root + KPM + SUSFS kernel is unchanged. This
-branch adds a separate config and a **diagnostic-only** workflow. Nothing is
-flashed or published automatically. A successful build is not device acceptance.
+branch adds a separate config and a **diagnostic-only** workflow. The build workflow remains manual. This
+rebase does not validate the ZeroMount image against the new baseline. Nothing
+is flashed or published automatically. A successful build is not device acceptance.
 
 Source reference: Enginex0/Super-Builders commit
 `c2cb71614868fe742cbffee2b6f3126523432673`, Android 12 / 5.4 SukiSU patch `60_`.

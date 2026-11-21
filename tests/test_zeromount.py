@@ -47,13 +47,20 @@ class ZeroMountTests(unittest.TestCase):
         stable = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-susfs-overrides.json').read_text())
         candidate = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-zeromount-overrides.json').read_text())
         self.assertEqual(candidate, dict(stable, CONFIG_ZEROMOUNT='y'))
-        for name in ['build-oneplus-9r-sukisu-susfs.yml', 'build-oneplus-9r-sukisu-kpm.yml']:
-            self.assertNotIn('prepare-zeromount', (ROOT / '.github/workflows' / name).read_text())
+        normal_wf = (ROOT / '.github/workflows/build-oneplus-9r-sukisu-susfs.yml').read_text()
+        self.assertNotIn('prepare-zeromount', normal_wf)
+        stable_profile = (ROOT / 'config/oneplus-9r-lineage-sukisu-susfs.env').read_text()
+        test_profile = (ROOT / 'config/oneplus-9r-lineage-sukisu-zeromount.env').read_text()
+        pin = next(line for line in stable_profile.splitlines() if line.startswith('KSU_REF='))
+        self.assertIn(pin, test_profile.splitlines())
         wf = (ROOT / '.github/workflows/build-oneplus-9r-sukisu-zeromount.yml').read_text()
         self.assertIn('contents: read', wf)
         self.assertNotIn('contents: write', wf)
         self.assertIn('bash scripts/prepare-zeromount.sh', wf)
         self.assertIn('fs/zeromount.o fs/namei.o', wf)
+        self.assertNotIn('  push:', wf)
+        self.assertNotIn('002-susfs-old-kernel-sids.patch', wf)
+        self.assertIn('ksu_extension_kpm_get$', wf)
 
     def test_integration_has_no_permission_or_metadata_bypass(self):
         patch = (PORT / '001-core-hooks-4.19.patch').read_text()

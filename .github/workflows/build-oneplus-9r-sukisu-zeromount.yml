@@ -2,15 +2,6 @@ name: Build OnePlus 9R (experimental ZeroMount absolute-file core)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [feat/oneplus9r-zeromount-experimental]
-    paths:
-      - '.github/workflows/build-oneplus-9r-sukisu-zeromount.yml'
-      - 'patches/oneplus-9r/zeromount/**'
-      - 'scripts/prepare-zeromount.sh'
-      - 'config/oneplus-9r-lineage-sukisu-zeromount.env'
-      - 'config/reference/oneplus-9r-sukisu-zeromount-overrides.json'
-      - 'config/reference/oneplus-9r-zeromount-lock.json'
 
 permissions:
   contents: read
@@ -112,7 +103,6 @@ jobs:
           cp patches/oneplus-9r/include/linux/static_call.h "$KERNEL_DIR/include/linux/"
           patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/001-4.19-compat.patch
-          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/002-susfs-old-kernel-sids.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/001-preinit-layout.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/002-nonsusfs-werror.patch
           # Install only the hash-locked native v2 core and reviewed 4.19 port.
@@ -133,7 +123,7 @@ jobs:
           # entry points are wired by the explicit patch above. Keep SUSFS at
           # the verified foundation; only the experimental absolute-file
           # ZeroMount core is added. Its runtime always starts disabled.
-          kconf_set_many "$DEFCONFIG_PATH" CONFIG_KSU=y CONFIG_KSU_SUSFS=y CONFIG_ZEROMOUNT=y CONFIG_KSU_SUSFS_SUS_PATH=n CONFIG_KSU_SUSFS_SUS_MOUNT=y CONFIG_KSU_SUSFS_SUS_KSTAT=n CONFIG_KSU_SUSFS_SPOOF_UNAME=y CONFIG_KSU_SUSFS_ENABLE_LOG=y CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=n CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y CONFIG_KSU_SUSFS_OPEN_REDIRECT=n CONFIG_KSU_SUSFS_SUS_MAP=n \
+          kconf_set_many "$DEFCONFIG_PATH" CONFIG_KSU=y CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=n CONFIG_KSU_SUSFS=y CONFIG_ZEROMOUNT=y CONFIG_KSU_SUSFS_SUS_PATH=n CONFIG_KSU_SUSFS_SUS_MOUNT=y CONFIG_KSU_SUSFS_SUS_KSTAT=n CONFIG_KSU_SUSFS_SPOOF_UNAME=y CONFIG_KSU_SUSFS_ENABLE_LOG=y CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=n CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y CONFIG_KSU_SUSFS_OPEN_REDIRECT=n CONFIG_KSU_SUSFS_SUS_MAP=n \
             CONFIG_KSU_FEATURE_ADBROOT=y CONFIG_KSU_DEBUG=n CONFIG_KPM=y
           export PATH="$CLANG_PATH:$PATH"
           unset DISABLE_LTO
@@ -161,6 +151,10 @@ jobs:
             fs/zeromount.o fs/namei.o fs/susfs.o fs/namespace.o fs/proc/fd.o fs/stat.o fs/statfs.o \
             fs/super.o fs/proc_namespace.o fs/proc/cmdline.o kernel/sys.o \
             security/selinux/avc.o drivers/kernelsu/ksu_main.o
+          # CONFIG_KPM=y alone is insufficient if upstream compiles out the extension.
+          "$CLANG_PATH/llvm-nm" --defined-only "$KERNEL_DIR/out/drivers/kernelsu/ksu_main.o" \
+            > "$WORKSPACE/diagnostics/ksu-defined-symbols.txt"
+          grep -Eq '[[:space:]]ksu_extension_kpm_get$' "$WORKSPACE/diagnostics/ksu-defined-symbols.txt"
           bash scripts/build.sh compile
 
       - name: Verify final config and output
