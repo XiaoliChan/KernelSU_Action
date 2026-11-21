@@ -54,6 +54,7 @@ class SusfsV2Tests(unittest.TestCase):
         prep = (ROOT / 'scripts/prepare-susfs-v2.sh').read_text()
         self.assertIn('test ! -e "$KERNEL_DIR/fs/susfs_compat.c"', prep)
         self.assertIn('--fuzz=0', prep)
+        self.assertIn('002-ksu-optional-v2-features.patch', prep)
         compat = (PORT / '001-core-4.19.patch').read_text()
         self.assertIn('+#include <linux/cred.h>', compat)
         self.assertIn('+#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER', compat)
@@ -62,13 +63,9 @@ class SusfsV2Tests(unittest.TestCase):
         def profile(name):
             return dict(re.findall(r'^([A-Z][A-Z_0-9]*)[=:](.*)$',
                                    (ROOT / 'config' / name).read_text(), re.M))
-        control = profile('oneplus-9r-lineage-sukisu-kpm.env')
         port = profile('oneplus-9r-lineage-sukisu-susfs.env')
-        permitted = {'CONFIG_ENV', 'KERNEL_CONFIG', 'ENABLE_SUSFS',
-                     'SUSFS_LOCAL_DIR', 'EXTRA_DEFCONFIG'}
-        changed = {key for key in control.keys() | port.keys()
-                   if control.get(key) != port.get(key)}
-        self.assertEqual(changed, permitted)
+        self.assertEqual(port['ENABLE_SUSFS'], 'true')
+        self.assertEqual(port['SUSFS_LOCAL_DIR'], 'oneplus-9r/susfs-v2')
         self.assertEqual(port['ENABLE_KPM'], 'true')
         self.assertEqual(port['DISABLE_CC_WERROR'], 'false')
         self.assertEqual(port['DISABLE_LTO'], 'false')

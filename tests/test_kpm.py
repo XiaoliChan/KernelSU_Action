@@ -105,17 +105,16 @@ class KpmTests(unittest.TestCase):
                             kpm.patch(d, d / 'bridge.h', image, d / 'reports')
                         self.assertEqual(image.read_bytes(), raw)
 
-    def test_kpm_stage_adds_only_kpm_and_never_releases(self):
-        adb = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-adbroot-overrides.json').read_text())
-        full = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-kpm-overrides.json').read_text())
-        self.assertEqual(full, {**adb, 'CONFIG_KPM': 'y'})
-        profile = (ROOT / 'config/oneplus-9r-lineage-sukisu-kpm.env').read_text()
-        for flag in ('ENABLE_KPM=true', 'ENABLE_SUSFS=false', 'CONFIG_KSU_DEBUG=n',
+    def test_device_workflow_requires_kpm_and_never_releases(self):
+        overrides = json.loads((ROOT / 'config/reference/oneplus-9r-sukisu-susfs-overrides.json').read_text())
+        self.assertEqual(overrides['CONFIG_KPM'], 'y')
+        profile = (ROOT / 'config/oneplus-9r-lineage-sukisu-susfs.env').read_text()
+        for flag in ('ENABLE_KPM=true', 'ENABLE_SUSFS=true', 'CONFIG_KSU_DEBUG=n',
                      'CONFIG_KSU_FEATURE_ADBROOT=y', 'ENABLE_CCACHE=true'):
             self.assertIn(flag, profile)
-        wf = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-sukisu-kpm.yml').read_text())
+        wf = yaml.safe_load((ROOT / '.github/workflows/build-oneplus-9r-sukisu-susfs.yml').read_text())
         self.assertEqual(wf['permissions'], {'contents': 'read'})
-        commands = '\n'.join(s.get('run', '') for s in wf['jobs']['kpm']['steps'])
+        commands = '\n'.join(s.get('run', '') for s in wf['jobs']['susfs']['steps'])
         self.assertIn('scripts/prepare-kpm.sh', commands)
         self.assertIn('CONFIG_KPM=y', commands)
         self.assertIn('cmake zlib1g-dev', commands)

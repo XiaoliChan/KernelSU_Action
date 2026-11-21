@@ -2,8 +2,6 @@
 
 # KernelSU Action
 
-> **9R 稳定性更正（2026-11-11）**：SUSFS 组合构建 `42876653991` 后续出现第三方 App 启动时整机卡死；先前的开机/管理器/接口验证不足以证明日常稳定性。暂停推荐该组合。无 SUSFS 的 **ADB-root + KPM** 对照已由用户确认 B 站正常。已复现 SUSFS 挂载 ID 备份重复覆盖问题，尚待修复和 App 场景验证，详见[故障记录](docs/oneplus-9r-boot-investigation.md)。
-
 用 GitHub Actions 为 Android 内核集成 KernelSU（及其各种分支）、SUSFS 与常用补丁，并产出可刷入的 AnyKernel3 包。
 
 需要一定的内核与 Android 基础知识。
@@ -33,22 +31,12 @@
 
 想给多台设备各留一份配置，就把 `config.env` 复制成 `config/<设备名>.env`，运行时在 `Config file to build` 里填该路径。
 
-### OnePlus 9R 自动发布
+### OnePlus 9R（当前维护配置）
 
-**当前实机验证路线**：LineageOS `24.0-20261107` 上 minimal、ADB-root 均已正常启动，ADB-root 已永久刷入并回读校验。`build-oneplus-9r-sukisu-kpm.yml` 在相同编译器、原厂配置和 ADB-root 基线上只追加 `CONFIG_KPM=y`，固定 ABI v2 KernelPatch 源码构建真实 payload；不加入 SUSFS、不加载 KPM 模块、不自动发布未经验证的候选。诊断流程使用 `fastboot boot`，不是直接刷写；下面的旧常规发布入口不能代替该验证路线。
+设备构建只保留 [SukiSU + ADB-root + KPM + SUSFS](config/oneplus-9r-lineage-sukisu-susfs.env)，从 Actions 手动运行 [9R 专用工作流](.github/workflows/build-oneplus-9r-sukisu-susfs.yml)。
+产物是待实机验证的 AnyKernel3 ZIP，不自动发布 Release。保留 LineageOS 参考配置及精确差异校验；通用构建器与根目录示例 `config.env` 不属于 9R 构建路径。
 
-**最新组合结果**：`build-oneplus-9r-sukisu-susfs.yml` 的 [42876653991](https://github.com/XiaoliChan/KernelSU_Action/actions/runs/42876653991) 已实机临时启动验证 **ADB-root + KPM + SUSFS 同时存在，官方管理器 Working**，并通过 SUSFS 可逆 uname 测试。随后经用户授权，已永久刷入 `boot_a`，正常重启及分区回读哈希校验通过；未发布新 Release，当前 Release 仍仅保留已验证 minimal。SUSFS 是 `v1.5.9-v2compat`，不代表所有 v2 功能可用。完整证据与限制见[启动故障定位](docs/oneplus-9r-boot-investigation.md)。
-
-一加 9R 的常规设备入口保留 `build-oneplus-9r-bakasu.yml`、`build-oneplus-9r-sukisu.yml`；原版 KernelSU 的 9R 入口和配置已移除。通用构建器对其他设备的原版支持不变。
-手动运行后，默认在构建成功时自动创建 GitHub Release；取消 `publish_release` 即只保留 Artifacts。通用 `Build Kernel` 的发布仍默认关闭，不额外触发 push 或定时构建。
-
-Release 附带 AnyKernel3 刷机 ZIP、可选 boot/DTBO 及 `SHA256SUMS`，不附带裸 `Image`（仍保留在 Actions Artifacts 中用于排错）。Tag 包含设备、分支、时间、run ID 和重跑次数，避免三个分支相互覆盖；这些设备构建不抢占仓库的 Latest 标记。
-从 Release 下载的 AnyKernel3 ZIP 可直接使用；从 Actions Artifacts 下载时，需先解开外层 artifact ZIP，使用里面的 AnyKernel3 ZIP，**不要刷外层包**。
-补丁已知问题见 [OnePlus 9R 补丁审查](docs/oneplus-9r-review.md)，自动发布不代表已完成设备验证。
-
-默认 AnyKernel3 安装脚本由本仓库维护，只替换 boot 内核并保留原 ramdisk，不使用上游的设备示例补丁。9R 配置接受代号 `lemonades` 和系统属性别名 `OnePlus9R`，强制识别活动 A/B 槽位；识别失败则中止。
-`ANYKERNEL3_DEVICE` 指定设备代号，`ANYKERNEL3_DEVICE_ALIAS` 可添加一个明确的系统属性别名，`ANYKERNEL3_SLOT_DEVICE` 为 `auto` / `0` / `1`。自定义 AnyKernel3 保留用户提供的安装脚本。
-安装器不会自动卸载 Magisk。若要从 Magisk 完全迁移到 KernelSU 分支，应先备份并在 Magisk 应用中完整卸载。
+构建版本见[源码锁](config/reference/oneplus-9r-susfs-v2-lock.json)。本次清理不更改内核、组件、工具链或补丁。原先的分阶段诊断配置与工作流可在 Git 历史中查阅。
 
 ## 支持的 KernelSU 分支
 

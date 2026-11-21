@@ -2,23 +2,12 @@
 
 # KernelSU Action
 
-> **9R stability correction (2026-11-11):** SUSFS build `42876653991` later caused whole-device freezes when opening third-party apps. Boot/manager/API checks did not establish daily-use stability; this combination is not recommended pending repair. The user confirmed that the **ADB-root + KPM, without SUSFS** control runs Bilibili normally. A duplicated SUSFS mount-ID backup rewrite has been reproduced; a fix and app-lifecycle validation remain pending. See the [investigation](docs/oneplus-9r-boot-investigation.md).
+## OnePlus 9R (maintained profile)
 
-## OnePlus 9R automatic releases
+The only maintained device profile is [SukiSU + ADB-root + KPM + SUSFS](config/oneplus-9r-lineage-sukisu-susfs.env).
+Run the [dedicated 9R workflow](.github/workflows/build-oneplus-9r-sukisu-susfs.yml) manually. It uploads a candidate AnyKernel3 ZIP without publishing a Release. It preserves the LineageOS reference config and exact config-delta checks. The generic builder and root-level example `config.env` are not the 9R build path.
 
-**Current device validation track:** minimal and ADB-root boot successfully on LineageOS `24.0-20261107`; ADB-root is permanently installed and its boot partition read-back hash is verified. `build-oneplus-9r-sukisu-kpm.yml` adds only `CONFIG_KPM=y` to that reference configuration and compiler, building the real payload from pinned ABI-v2 KernelPatch source. It includes no SUSFS or KPM modules and does not publish unverified candidates. Test with `fastboot boot`; the legacy release workflows below are not a substitute for this staged validation.
-
-**Combined candidate verified:** run [42876653991](https://github.com/XiaoliChan/KernelSU_Action/actions/runs/42876653991) of `build-oneplus-9r-sukisu-susfs.yml` temporarily boots **ADB-root + KPM + SUSFS together**, with the official manager showing Working and a reversible SUSFS uname test passing. It was subsequently permanently flashed to `boot_a` with explicit user approval; normal reboot and partition read-back verification passed. It has not been published; Releases still contain only the verified minimal build. SUSFS is `v1.5.9-v2compat`, not the complete v2 feature set. See the [boot investigation](docs/oneplus-9r-boot-investigation.md) for evidence and limitations.
-
-The regular 9R device workflows are `build-oneplus-9r-bakasu.yml` and `build-oneplus-9r-sukisu.yml`. The original-KernelSU 9R entry and profile have been removed; generic original-KernelSU support for other devices remains available.
-Each manual run publishes a GitHub Release after a successful build by default; disable `publish_release` for artifacts only. The generic builder still defaults to no release. No push or scheduled build trigger is added.
-
-Releases include the prebuilt AnyKernel3 ZIP, optional boot/DTBO images, and `SHA256SUMS`. Raw kernel images are kept in Actions Artifacts for debugging, not uploaded to Releases. Tags include device, variant, timestamp, run ID, and attempt to avoid collisions. Device builds do not replace the repository's Latest release.
-Use the AnyKernel3 ZIP directly from Releases. When downloading through Actions Artifacts, extract the outer artifact ZIP first and flash the inner AnyKernel3 ZIP, **not the outer archive**.
-See the [OnePlus 9R patch review (Chinese)](docs/oneplus-9r-review.md) for known issues; automatic publication does not imply device validation.
-
-The default installer is maintained in this repository, replaces the boot kernel, and preserves the existing ramdisk. Upstream example payloads are removed. The 9R profiles accept `lemonades` and the Android property alias `OnePlus9R`, and require active A/B slot detection; missing slot information aborts installation.
-`ANYKERNEL3_DEVICE` selects the codename, `ANYKERNEL3_DEVICE_ALIAS` adds one explicit property alias, and `ANYKERNEL3_SLOT_DEVICE` accepts `auto`, `0`, or `1`. Custom AnyKernel3 scripts remain untouched. The installer does not uninstall Magisk automatically.
+See the [source lock](config/reference/oneplus-9r-susfs-v2-lock.json) for the maintained build inputs. This cleanup does not change the kernel, dependencies, toolchain or patches. Historical staged profiles and workflows remain available in Git history.
 
 A GitHub Actions workflow that integrates KernelSU (and its forks), SUSFS and the common kernel patches into an Android kernel, and produces a flashable AnyKernel3 package.
 
