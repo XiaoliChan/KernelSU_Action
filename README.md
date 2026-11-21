@@ -33,6 +33,8 @@
 
 ### OnePlus 9R（当前维护配置）
 
+内置 Zygisk 导致开机循环时，参见 [9R Nova 临时救援指南](docs/oneplus-9r-nova-rescue.md)。救援镜像只用于临时启动，不刷写。
+
 **实机验证记录（2026-11-21）**：[构建 44863989700](https://github.com/XiaoliChan/KernelSU_Action/actions/runs/44863989700) 在 9R（LineageOS 24.0-20261120）临时启动后刷入 A 槽，重启与 boot 回读通过。确认 ADB-root、KPM ABI 2（未加载模块）、SUSFS v2.4.0 及 Nova v3.0.0 管理器识别正常。后续构建仍只上传候选，不自动发布。
 
 设备构建只保留 [SukiSU + ADB-root + KPM + SUSFS](config/oneplus-9r-lineage-sukisu-susfs.env)，从 Actions 手动运行 [9R 专用工作流](.github/workflows/build-oneplus-9r-sukisu-susfs.yml)。

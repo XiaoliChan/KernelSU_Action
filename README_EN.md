@@ -4,6 +4,8 @@
 
 ## OnePlus 9R (maintained profile)
 
+For a boot loop after enabling built-in Zygisk, see the [9R Nova temporary rescue guide](docs/oneplus-9r-nova-rescue.md). Do not flash the rescue image.
+
 **Device verification (2026-11-21):** [build 44863989700](https://github.com/XiaoliChan/KernelSU_Action/actions/runs/44863989700) booted temporarily, then passed a reboot and read-back after flashing slot A on a OnePlus 9R running LineageOS 24.0-20261120. ADB-root, KPM ABI 2 (no modules loaded), SUSFS v2.4.0 and recognition by Nova manager v3.0.0 were confirmed. Future builds still upload candidates without publishing a release.
 
 The only maintained device profile is [SukiSU + ADB-root + KPM + SUSFS](config/oneplus-9r-lineage-sukisu-susfs.env).
