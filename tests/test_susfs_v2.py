@@ -62,13 +62,10 @@ class SusfsV2Tests(unittest.TestCase):
         def profile(name):
             return dict(re.findall(r'^([A-Z][A-Z_0-9]*)[=:](.*)$',
                                    (ROOT / 'config' / name).read_text(), re.M))
-        control = profile('oneplus-9r-lineage-sukisu-kpm.env')
         port = profile('oneplus-9r-lineage-sukisu-susfs.env')
-        permitted = {'CONFIG_ENV', 'KERNEL_CONFIG', 'ENABLE_SUSFS',
-                     'SUSFS_LOCAL_DIR', 'EXTRA_DEFCONFIG'}
-        changed = {key for key in control.keys() | port.keys()
-                   if control.get(key) != port.get(key)}
-        self.assertEqual(changed, permitted)
+        self.assertEqual(port['ENABLE_SUSFS'], 'true')
+        self.assertEqual(port['SUSFS_LOCAL_DIR'], 'oneplus-9r/susfs-v2')
+        self.assertIn('CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=n', port['EXTRA_DEFCONFIG'])
         self.assertEqual(port['ENABLE_KPM'], 'true')
         self.assertEqual(port['DISABLE_CC_WERROR'], 'false')
         self.assertEqual(port['DISABLE_LTO'], 'false')

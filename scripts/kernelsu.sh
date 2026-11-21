@@ -52,7 +52,7 @@ ksu_registry() {
 		# Repo moved from the personal ShirkNeko account into its own org.
 		# 'main' is the modular v4 tree (KPM, no SUSFS); 'builtin' is the
 		# non-GKI/source-integrated tree and is the only one with SUSFS Kconfig.
-		echo "https://github.com/SukiSU-Ultra/SukiSU-Ultra|main|KernelSU|main|builtin|builtin|SukiSU-Ultra" ;;
+		echo "https://github.com/SukiSU-Nova/SukiSU-Nova|main|KernelSU|main|builtin|builtin|SukiSU-Ultra" ;;
 	resukisu)
 		# Re-fork of SukiSU-Ultra aimed at legacy/non-GKI kernels.
 		echo "https://github.com/ReSukiSU/ReSukiSU|main|KernelSU|main|main|-|ReSukiSU" ;;
@@ -117,6 +117,11 @@ ksu_install() {
 	if [ -z "$requested_ref" ] && ksu_default_is_branch "$variant"; then
 		warn "${name}'s setup.sh defaults to the moving 'main' branch rather than a tag."
 		warn "Pin KSU_REF (e.g. a tag) if you need reproducible builds."
+	fi
+
+	# Keep the source-integrated SukiSU installer aligned with a pinned commit.
+	if [ "$variant" = sukisu-ultra ] && [[ "$ref" =~ ^[a-f0-9]{40}$ ]]; then
+		setup_ref=$ref
 	fi
 
 	# Run the variant's own installer.

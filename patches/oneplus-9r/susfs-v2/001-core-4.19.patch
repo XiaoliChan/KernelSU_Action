@@ -1,8 +1,8 @@
 diff --git a/include/linux/susfs_def.h b/include/linux/susfs_def.h
 --- a/include/linux/susfs_def.h
 +++ b/include/linux/susfs_def.h
-@@ -4,6 +4,7 @@
- #include <linux/bits.h>
+@@ -5,6 +5,7 @@
+ #include <linux/bitops.h>
  #include <linux/bitmap.h>
  #include <linux/string.h>
 +#include <linux/cred.h>

@@ -17,7 +17,8 @@ The moving `main-kernel/clang-r596125` directory now contains Android build
 before compilation. The profile now fetches the immutable 15071444 snapshot;
 the comparator still checks the full compiler identity without an ignore rule.
 
-The stock-control workflow checks this file's hash, creates a new untracked
-defconfig in a clean, pinned kernel tree, then compares every effective Kconfig
-value before and after compilation. It never installs KernelSU, applies the
-SUSFS/hide/manual-hook patches, or creates a Release.
+The maintained OnePlus 9R workflow checks this file's hash, generates a
+defconfig in the pinned kernel tree and compares the effective Kconfig values
+before and after compilation against the explicit SUSFS-profile overrides.
+The historical control/minimal/ADB-root/KPM stage profiles are no longer
+maintained; their source and results remain in Git history.

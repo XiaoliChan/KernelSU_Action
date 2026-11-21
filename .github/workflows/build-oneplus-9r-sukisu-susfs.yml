@@ -103,7 +103,6 @@ jobs:
           cp patches/oneplus-9r/include/linux/static_call.h "$KERNEL_DIR/include/linux/"
           patch -d "$KERNEL_DIR" -p1 --batch --fuzz=0 < patches/oneplus-9r/minimal_hooks/kernel-4.19-sukisu.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/001-4.19-compat.patch
-          patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra/002-susfs-old-kernel-sids.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/001-preinit-layout.patch
           patch -d "$KERNEL_DIR/KernelSU" -p1 --batch --fuzz=0 < patches/oneplus-9r/ksu_fixes/sukisu-ultra-minimal/002-nonsusfs-werror.patch
           # Install only the hash-locked native v2 core and reviewed 4.19 port.
@@ -123,7 +122,7 @@ jobs:
           # entry points are wired by the explicit patch above; set only the
           # Kconfig symbols that it actually declares. This first v2 stage
           # isolates mount lifecycle; other VFS features are not yet enabled.
-          kconf_set_many "$DEFCONFIG_PATH" CONFIG_KSU=y CONFIG_KSU_SUSFS=y CONFIG_KSU_SUSFS_SUS_PATH=n CONFIG_KSU_SUSFS_SUS_MOUNT=y CONFIG_KSU_SUSFS_SUS_KSTAT=n CONFIG_KSU_SUSFS_SPOOF_UNAME=y CONFIG_KSU_SUSFS_ENABLE_LOG=y CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=n CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y CONFIG_KSU_SUSFS_OPEN_REDIRECT=n CONFIG_KSU_SUSFS_SUS_MAP=n \
+          kconf_set_many "$DEFCONFIG_PATH" CONFIG_KSU=y CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=n CONFIG_KSU_SUSFS=y CONFIG_KSU_SUSFS_SUS_PATH=n CONFIG_KSU_SUSFS_SUS_MOUNT=y CONFIG_KSU_SUSFS_SUS_KSTAT=n CONFIG_KSU_SUSFS_SPOOF_UNAME=y CONFIG_KSU_SUSFS_ENABLE_LOG=y CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=n CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y CONFIG_KSU_SUSFS_OPEN_REDIRECT=n CONFIG_KSU_SUSFS_SUS_MAP=n \
             CONFIG_KSU_FEATURE_ADBROOT=y CONFIG_KSU_DEBUG=n CONFIG_KPM=y
           export PATH="$CLANG_PATH:$PATH"
           unset DISABLE_LTO

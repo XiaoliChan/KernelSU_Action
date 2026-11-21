@@ -1,25 +1,25 @@
 {
   "upstream": "https://gitlab.com/simonpunk/susfs4ksu.git",
   "branch": "gki-android12-5.10",
-  "commit": "5436438b5cc77f146e04f71070da153dabe17a9d",
+  "commit": "784ac9e6fd49bb02499b5b60c57ccc9d0c680204",
   "version": "v2.4.0",
   "files": {
-    "kernel_patches/fs/susfs.c": "eb192f62a9ec70b0c00b0e800d5734a7e51f357bb3d001e10d1e3be9f76e9b0d",
-    "kernel_patches/include/linux/susfs.h": "1dbe8e9d31211bf07eacf5c28054b7f3bb27d034565b88f1ddff371c356c4dd6",
-    "kernel_patches/include/linux/susfs_def.h": "cb441cb566d009bce20c1f4ce43fa10ce3472daafd0f37e144cdf1be87b3f88e",
-    "kernel_patches/50_add_susfs_in_gki-android12-5.10.patch": "f17439344475ae8ae91b80c46a14e87c475db2a6a396cf6adfe142f1ee6a8b74"
+    "kernel_patches/fs/susfs.c": "2a8bb10bca2ad5134cd65bf02ef56863795949b1d9cbed603c380b58d9bc61bf",
+    "kernel_patches/include/linux/susfs.h": "763a502a37c3ffa3807ba2cab46af31807b8bd87cccb86d12e552d0532a96573",
+    "kernel_patches/include/linux/susfs_def.h": "e8a1cee4b41bcdce43998ae337e60fca9888b2f8bea47074fe3b3377220794d8",
+    "kernel_patches/50_add_susfs_in_gki-android12-5.10.patch": "bc7b152944cf13384f17238df43fc3c97025c254b61e47afb9864cca1051e041"
   },
   "baseline": {
     "kernel": "078365e5318de0a30a41f9707070b610bcd20f13",
     "compiler_build": 15071444,
-    "sukisu": "1cfa57340590971cba7521ed536da8ebbedc5f0a",
+    "sukisu": "ef7e3eaee8ebac9ad2b372beeb4a21253b46ae05",
     "kernelpatch": "1c5b608916357ac86a94cc736e235db1fac4a29d",
     "ksu_features": [
       "ADB-root",
       "KPM"
     ]
   },
-  "status": "native v2.4 foundation port passes offline integration and lifecycle tests; kernel build/device validation pending",
+  "status": "upstream refresh candidate; build and runtime verification tracked separately",
   "stage": {
     "enabled": [
       "SUS_MOUNT",
