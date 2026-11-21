@@ -7,7 +7,7 @@
 The only maintained device profile is [SukiSU + ADB-root + KPM + SUSFS](config/oneplus-9r-lineage-sukisu-susfs.env).
 Run the [dedicated 9R workflow](.github/workflows/build-oneplus-9r-sukisu-susfs.yml) manually. It uploads a candidate AnyKernel3 ZIP without publishing a Release. It preserves the LineageOS reference config and exact config-delta checks. The generic builder and root-level example `config.env` are not the 9R build path.
 
-See the [source lock](config/reference/oneplus-9r-susfs-v2-lock.json). The device remains on LineageOS SM8250 4.19 and pins SukiSU `builtin` at `ef7e3ea`, before upstream compiled out KPM on pre-5.10 kernels. ZeroMount and bootloader experiments are not included.
+See the [source lock](config/reference/oneplus-9r-susfs-v2-lock.json). The device remains on LineageOS SM8250 4.19. SukiSU Nova `builtin` is pinned at `4bec532`, which lowers the KPM build gate to 4.4. The workflow checks that the KPM handler was actually compiled; runtime compatibility still needs device validation. ZeroMount and bootloader experiments are not included.
 
 A GitHub Actions workflow that integrates KernelSU (and its forks), SUSFS and the common kernel patches into an Android kernel, and produces a flashable AnyKernel3 package.
 

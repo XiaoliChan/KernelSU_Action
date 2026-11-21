@@ -150,6 +150,10 @@ jobs:
             fs/susfs.o fs/namespace.o fs/proc/fd.o fs/stat.o fs/statfs.o \
             fs/super.o fs/proc_namespace.o fs/proc/cmdline.o kernel/sys.o \
             security/selinux/avc.o drivers/kernelsu/ksu_main.o
+          # CONFIG_KPM=y alone is insufficient if upstream compiles out the extension.
+          "$CLANG_PATH/llvm-nm" --defined-only "$KERNEL_DIR/out/drivers/kernelsu/ksu_main.o" \
+            > "$WORKSPACE/diagnostics/ksu-defined-symbols.txt"
+          grep -Eq '[[:space:]]ksu_extension_kpm_get$' "$WORKSPACE/diagnostics/ksu-defined-symbols.txt"
           bash scripts/build.sh compile
 
       - name: Verify final config and output

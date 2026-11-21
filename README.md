@@ -36,7 +36,7 @@
 设备构建只保留 [SukiSU + ADB-root + KPM + SUSFS](config/oneplus-9r-lineage-sukisu-susfs.env)，从 Actions 手动运行 [9R 专用工作流](.github/workflows/build-oneplus-9r-sukisu-susfs.yml)。
 产物是待实机验证的 AnyKernel3 ZIP，不自动发布 Release。保留 LineageOS 参考配置及精确差异校验；通用构建器与根目录示例 `config.env` 不属于 9R 构建路径。
 
-上游版本记录：[当前构建来源](config/reference/oneplus-9r-susfs-v2-lock.json)。设备仍使用 4.19 的 LineageOS SM8250 源码；SukiSU `builtin` 较新提交移除了 5.10 以下的 KPM，因此固定在仍保留该功能的 `ef7e3ea`，不静默降级功能。实验性的 ZeroMount 和 Bootloader 研究不进入本构建。
+上游版本记录：[当前构建来源](config/reference/oneplus-9r-susfs-v2-lock.json)。设备仍使用 4.19 的 LineageOS SM8250 源码。SukiSU Nova `builtin` 固定在 `4bec532`，该提交把 KPM 编译门槛改为 4.4；构建检查 KPM handler 是否已实际编译，设备兼容性仍需实机验证。实验性的 ZeroMount 和 Bootloader 研究不进入本构建。
 
 ## 支持的 KernelSU 分支
 

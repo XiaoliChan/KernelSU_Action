@@ -117,6 +117,8 @@ class KpmTests(unittest.TestCase):
         commands = '\n'.join(s.get('run', '') for s in wf['jobs']['susfs']['steps'])
         self.assertIn('scripts/prepare-kpm.sh', commands)
         self.assertIn('CONFIG_KPM=y', commands)
+        self.assertIn('llvm-nm', commands)
+        self.assertIn('ksu_extension_kpm_get$', commands)
         self.assertIn('cmake zlib1g-dev', commands)
         self.assertNotIn('action-gh-release', str(wf))
         self.assertNotIn('scripts/patches.sh all', commands)

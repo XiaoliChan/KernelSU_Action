@@ -12,7 +12,7 @@
   "baseline": {
     "kernel": "078365e5318de0a30a41f9707070b610bcd20f13",
     "compiler_build": 15071444,
-    "sukisu": "ef7e3eaee8ebac9ad2b372beeb4a21253b46ae05",
+    "sukisu": "4bec532dd447e2852aa8932afa768255350c103a",
     "kernelpatch": "1c5b608916357ac86a94cc736e235db1fac4a29d",
     "ksu_features": [
       "ADB-root",
