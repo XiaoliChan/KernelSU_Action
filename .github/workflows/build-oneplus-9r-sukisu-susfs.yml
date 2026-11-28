@@ -17,7 +17,7 @@ jobs:
     env:
       WORKSPACE: ${{ github.workspace }}/kernel_workspace
       CONFIG_ENV: config/oneplus-9r-lineage-sukisu-susfs.env
-      REFERENCE_KERNEL_COMMIT: 078365e5318de0a30a41f9707070b610bcd20f13
+      REFERENCE_KERNEL_COMMIT: 9a15643e7397578ccbc356a20e9cc25c02e114f6
       REFERENCE_CONFIG: ${{ github.workspace }}/config/reference/oneplus-9r-lineage-24.config
       EXPECTED_OVERRIDES: ${{ github.workspace }}/config/reference/oneplus-9r-sukisu-susfs-overrides.json
       CCACHE_DIR: ${{ github.workspace }}/kernel_workspace/.ccache
@@ -160,7 +160,7 @@ jobs:
         run: |
           bash scripts/build.sh check
           release=$(sed -n 's/^#define UTS_RELEASE "\(.*\)"/\1/p' "$KERNEL_DIR/out/include/generated/utsrelease.h")
-          test "$release" = '4.19.325-cip136-st20-perf-g078365e5318d'
+          test "$release" = '4.19.325-cip137-st21-perf-g9a15643e7397'
           printf '%s\n' "$release" > "$WORKSPACE/diagnostics/kernel-release.txt"
           cp "$KERNEL_DIR/out/.config" "$WORKSPACE/diagnostics/kernel.config"
           python3 scripts/compare-kconfig.py "$REFERENCE_CONFIG" "$KERNEL_DIR/out/.config" \
