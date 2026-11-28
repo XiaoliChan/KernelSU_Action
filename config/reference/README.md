@@ -22,3 +22,10 @@ defconfig in the pinned kernel tree and compares the effective Kconfig values
 before and after compilation against the explicit SUSFS-profile overrides.
 The historical control/minimal/ADB-root/KPM stage profiles are no longer
 maintained; their source and results remain in Git history.
+
+The 2026-11-27 OnePlus 9R OTA uses LineageOS source
+`9a15643e7397578ccbc356a20e9cc25c02e114f6` (cip137-st21). Its running
+kernel configuration still matches the reference SHA-256 above byte for byte.
+[Build 46106036605](https://github.com/XiaoliChan/KernelSU_Action/actions/runs/46106036605)
+used this newer kernel source; its config comparison reported no unexpected
+differences. The old rescue image is specific to the November 20 OTA.
